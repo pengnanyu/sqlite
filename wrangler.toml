@@ -1,0 +1,25 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "bms-esa-api"
+main = "src/index.ts"
+compatibility_date = "2024-06-20"
+
+# KV Namespace 绑定
+# 在 ESA 控制台或 wrangler 中创建 KV namespace 后绑定
+[[kv_namespaces]]
+binding = "PROTOCOL_KV"
+id = "your-kv-namespace-id"
+
+[[kv_namespaces]]
+binding = "AUTH_KV"
+id = "your-auth-kv-namespace-id"
+
+# 环境变量
+[vars]
+GITHUB_TOKEN = ""
+GITHUB_REPO = "pengnanyu/protocol-db"
+GITHUB_BRANCH = "main"
+JWT_SECRET = "change-this-in-production"
+
+# 静态资源目录（Admin UI）
+[site]
+bucket = "./admin"

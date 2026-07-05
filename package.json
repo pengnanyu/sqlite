@@ -1,0 +1,16 @@
+{
+  "name": "bms-esa-api",
+  "version": "1.0.0",
+  "description": "AIBMS ESA Edge Functions - Protocol Database API & Admin",
+  "scripts": {
+    "dev": "npx wrangler dev",
+    "deploy": "npx wrangler deploy",
+    "build:admin": "echo 'Admin UI is static, no build needed'"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240620.0",
+    "typescript": "^5.4.0",
+    "wrangler": "^3.60.0"
+  },
+  "dependencies": {}
+}
