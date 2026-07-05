@@ -2,5 +2,19 @@
   "installCommand": "npm install",
   "buildCommand": "npx esbuild src/index.ts --bundle --outfile=dist/index.js --format=esm --platform=browser --target=es2022 --external:node:*",
   "outputDirectory": "dist",
-  "functionFilePath": "dist/index.js"
+  "functionFilePath": "dist/index.js",
+  "assetsDirectory": "dist",
+  "install": {
+    "command": "npm install"
+  },
+  "build": {
+    "command": "npx esbuild src/index.ts --bundle --outfile=dist/index.js --format=esm --platform=browser --target=es2022 --external:node:*",
+    "outputDirectory": "dist"
+  },
+  "assets": {
+    "directory": "dist"
+  },
+  "function": {
+    "filePath": "dist/index.js"
+  }
 }
