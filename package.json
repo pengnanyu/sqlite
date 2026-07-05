@@ -1,5 +1,5 @@
 {
-  "name": "bms-esa-api",
+  "name": "bms-sqlite",
   "version": "1.0.0",
   "description": "AIBMS ESA Edge Functions - Protocol Database API & Admin",
   "scripts": {

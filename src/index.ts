@@ -42,7 +42,7 @@ export default {
     // 健康检查
     if (path === '/' || path === '/health') {
       return jsonResponse({
-        service: 'bms-esa-api',
+        service: 'bms-sqlite',
         status: 'ok',
         version: '1.0.0',
         time: new Date().toISOString(),

@@ -1,4 +1,4 @@
-# bms-esa-api — ESA 边缘函数协议数据库 API
+# bms-sqlite — ESA 边缘函数协议数据库 API
 
 > 最后更新：2026-07-05
 
@@ -129,7 +129,7 @@ npx wrangler deploy
 ## 目录结构
 
 ```
-esa-api/
+sqlite/
 ├── src/
 │   ├── index.ts              # 入口路由
 │   ├── types.ts              # 类型定义
