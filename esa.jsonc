@@ -2,5 +2,9 @@
   "installCommand": "npm install",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "edgeFunctionFilePath": "dist/index.js"
+  "functionJsFilePath": "dist/index.js",
+  "functionFilePath": "dist/index.js",
+  "edgeFunctionFilePath": "dist/index.js",
+  "functionPath": "dist/index.js",
+  "function": "dist/index.js"
 }
