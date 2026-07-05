@@ -1,0 +1,6 @@
+{
+  "installCommand": "npm install",
+  "buildCommand": "npx tsc",
+  "functionFilePath": "dist/index.js",
+  "assetsDirectory": "./admin"
+}
