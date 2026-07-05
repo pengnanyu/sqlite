@@ -1,18 +1,20 @@
 # bms-sqlite — ESA 边缘函数协议数据库 API
 
-> 最后更新：2026-07-05
+> 最后更新：2026-07-06
 
 ## 概述
 
-利用阿里云 ESA（Edge Service Architecture）的边缘函数和 KV 存储，模拟在线 SQLite，为 UI 项目提供动态协议数据库功能。包含 Web 管理界面，支持在线导入 db/csv、表编辑、权限管理和 GitHub 同步。
+利用阿里云 ESA "边缘计算和 AI" 中的"函数和 Pages"功能，结合 KV 存储，模拟在线 SQLite，为 UI 项目提供动态协议数据库 API 和 Web 管理界面。
+
+ESA 绑定 GitHub 仓库自动构建部署，代码推送后自动生效。
 
 ## 架构
 
 ```
-UI 项目 (bms-ui)
+UI 项目 (bms-ui / bms-android)
   │
   ▼ fetch /api/data?search={version}
-ESA 边缘函数
+ESA 边缘函数 (GitHub 自动构建)
   │
   ├── KV: PROTOCOL_KV  ← 协议数据存储
   ├── KV: AUTH_KV      ← 用户/会话存储
@@ -23,38 +25,48 @@ ESA 边缘函数
   └── /admin/*         → Web 管理界面 SPA
 ```
 
-## 部署
+## 部署方式
 
-### 1. 创建 KV 命名空间
+### ESA GitHub 自动构建（推荐）
 
-在 ESA 控制台创建两个 KV 命名空间：
-- `PROTOCOL_KV` — 存储协议数据
-- `AUTH_KV` — 存储用户和会话
+1. 在 ESA 控制台 "函数和 Pages" 中创建项目
+2. 绑定 GitHub 仓库 `pengnanyu/sqlite`
+3. ESA 自动读取 `esa.jsonc` 配置，执行 `npm install && npm run build`
+4. 构建产物 `dist/index.js` 部署为边缘函数
+5. 在 ESA 控制台配置 KV 命名空间：
+   - `PROTOCOL_KV` (namespace: `bms-protocol-db`)
+   - `AUTH_KV` (namespace: `bms-auth`)
+6. 在 ESA 控制台设置环境变量：
+   - `GITHUB_TOKEN` — GitHub API Token（用于协议数据同步）
+   - `JWT_SECRET` — JWT 签名密钥
 
-### 2. 配置 wrangler.toml
-
-```toml
-[[kv_namespaces]]
-binding = "PROTOCOL_KV"
-id = "你的-KV-ID"
-
-[[kv_namespaces]]
-binding = "AUTH_KV"
-id = "你的-KV-ID"
-
-[vars]
-GITHUB_TOKEN = "你的GitHub Token"
-GITHUB_REPO = "pengnanyu/protocol-db"
-GITHUB_BRANCH = "main"
-JWT_SECRET = "随机密钥"
-```
-
-### 3. 部署
+### 本地开发
 
 ```bash
 npm install
-npx wrangler deploy
+npm run build    # esbuild 打包到 dist/index.js
+npm run dev      # wrangler 本地调试
 ```
+
+## 配置文件说明
+
+### esa.jsonc
+
+ESA 自动构建配置文件，定义构建命令、输出路径和 KV 绑定。
+
+### wrangler.toml
+
+Cloudflare Wrangler 兼容配置，用于本地开发和 `wrangler deploy`。
+
+### 构建命令
+
+```bash
+esbuild src/index.ts --bundle --outfile=dist/index.js --format=esm --platform=neutral --target=es2022
+```
+
+- `--format=esm` — 边缘函数要求 ESM 格式
+- `--platform=neutral` — 中立平台，不注入 Node.js 或浏览器特定 polyfill
+- 输出为单一 `dist/index.js` 文件
 
 ## API 接口
 
@@ -64,6 +76,7 @@ npx wrangler deploy
 |------|------|------|
 | GET | `/api/data?search={version}` | 查询协议数据（兼容旧接口） |
 | GET | `/api/versions` | 获取所有版本列表 |
+| GET | `/` 或 `/health` | 健康检查 |
 
 ### 管理 API（需认证）
 
@@ -134,15 +147,16 @@ sqlite/
 │   ├── index.ts              # 入口路由
 │   ├── types.ts              # 类型定义
 │   ├── handlers/
-│   │   ├── protocol.ts       # 公共协议 API
-│   │   ├── admin.ts          # 管理 API
-│   │   └── admin-page.ts     # 管理 Web 界面
+│   │   ├── admin.ts          # 管理 API + 公共协议 API
+│   │   └── admin-page.ts     # 管理 Web 界面（内嵌 HTML）
 │   └── lib/
 │       ├── kv.ts             # KV 存储操作
 │       ├── auth.ts           # 认证（SHA-256 + Session）
 │       ├── csv.ts            # CSV 解析/导出
 │       └── github.ts         # GitHub 同步
-├── wrangler.toml             # 部署配置
+├── esa.jsonc                 # ESA 自动构建配置
+├── wrangler.toml             # Wrangler 部署配置
 ├── package.json
-└── tsconfig.json
+├── tsconfig.json
+└── .gitignore
 ```
