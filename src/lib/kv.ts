@@ -56,7 +56,7 @@ export async function deleteProtocol(env: Env, version: string): Promise<void> {
 }
 
 /** 更新版本索引 */
-async function updateVersionsIndex(env: Env): Promise<void> {
+export async function updateVersionsIndex(env: Env): Promise<void> {
   // KV 没有列出所有 key 的好方法，所以我们维护一个索引
   // 先尝试 list API
   const list = await env.PROTOCOL_KV.list({ prefix: VERSION_PREFIX });

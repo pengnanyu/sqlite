@@ -1,5 +1,5 @@
 import type { Env, ProtocolEntry } from '../types';
-import { exportAllProtocols } from './kv';
+import { exportAllProtocols, updateVersionsIndex } from './kv';
 
 const GITHUB_API = 'https://api.github.com';
 
@@ -80,7 +80,7 @@ export async function syncFromGitHub(env: Env): Promise<{ success: boolean; mess
   }
 
   // 更新索引
-  const { updateVersionsIndex } = await import('./kv');
+
   await updateVersionsIndex(env);
 
   return {

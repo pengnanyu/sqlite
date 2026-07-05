@@ -1,5 +1,5 @@
 import type { Env } from './types';
-import { handleProtocolApi } from './handlers/protocol';
+import { handleProtocolApi } from './handlers/admin';
 import { handleAdminApi } from './handlers/admin';
 import { initDefaultUsers } from './lib/auth';
 import { handleAdminPage } from './handlers/admin-page';
