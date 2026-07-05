@@ -1,25 +1,21 @@
-#:schema node_modules/wrangler/config-schema.json
 name = "bms-sqlite"
 main = "src/index.ts"
 compatibility_date = "2024-06-20"
 
 # KV Namespace 绑定
-# 在 ESA 控制台或 wrangler 中创建 KV namespace 后绑定
+# 在 ESA 控制台创建 KV namespace 后，将 id 替换为实际值
+# 或通过 esa.jsonc 中的 kv 配置自动绑定
 [[kv_namespaces]]
 binding = "PROTOCOL_KV"
-id = "your-kv-namespace-id"
+id = "bms-protocol-db"
 
 [[kv_namespaces]]
 binding = "AUTH_KV"
-id = "your-auth-kv-namespace-id"
+id = "bms-auth"
 
-# 环境变量
+# 环境变量（敏感信息请在 ESA 控制台设置）
 [vars]
-GITHUB_TOKEN = ""
 GITHUB_REPO = "pengnanyu/protocol-db"
 GITHUB_BRANCH = "main"
-JWT_SECRET = "change-this-in-production"
-
-# 静态资源目录（Admin UI）
-[site]
-bucket = "./admin"
+JWT_SECRET = "bms-esa-jwt-2024"
+# GITHUB_TOKEN 请在 ESA 控制台设置为环境变量

@@ -4,10 +4,19 @@ import { handleAdminApi } from './handlers/admin';
 import { initDefaultUsers } from './lib/auth';
 import { handleAdminPage } from './handlers/admin-page';
 
+// Extend globalThis for edge runtime
+declare global {
+  // eslint-disable-next-line no-var
+  var __usersInitialized: boolean | undefined;
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    // 初始化默认用户
-    await initDefaultUsers(env);
+    // 初始化默认用户（仅在首次冷启动时执行）
+    if (!globalThis.__usersInitialized) {
+      await initDefaultUsers(env);
+      globalThis.__usersInitialized = true;
+    }
 
     const url = new URL(request.url);
     const path = url.pathname;

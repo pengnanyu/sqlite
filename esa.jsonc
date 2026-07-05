@@ -6,5 +6,20 @@
   "functionFilePath": "dist/index.js",
   "edgeFunctionFilePath": "dist/index.js",
   "functionPath": "dist/index.js",
-  "function": "dist/index.js"
+  "function": "dist/index.js",
+  "kv": [
+    {
+      "binding": "PROTOCOL_KV",
+      "namespace": "bms-protocol-db"
+    },
+    {
+      "binding": "AUTH_KV",
+      "namespace": "bms-auth"
+    }
+  ],
+  "vars": {
+    "GITHUB_REPO": "pengnanyu/protocol-db",
+    "GITHUB_BRANCH": "main",
+    "JWT_SECRET": "bms-esa-jwt-2024"
+  }
 }
