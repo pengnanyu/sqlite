@@ -1,12 +1,6 @@
 {
-  "install": {
-    "command": "npm install"
-  },
-  "build": {
-    "command": "npx esbuild src/index.ts --bundle --outfile=dist/index.js --format=esm --platform=browser --target=es2022 --external:node:*",
-    "outputDirectory": "dist"
-  },
-  "edgeFunction": {
-    "filePath": "dist/index.js"
-  }
+  "installCommand": "npm install",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "edgeFunctionFilePath": "dist/index.js"
 }

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "npx wrangler dev",
     "deploy": "npx wrangler deploy",
+    "build": "npx esbuild src/index.ts --bundle --outfile=dist/index.js --format=esm --platform=browser --target=es2022 --external:node:*",
     "build:admin": "echo 'Admin UI is static, no build needed'"
   },
   "devDependencies": {
