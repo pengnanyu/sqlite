@@ -1,6 +1,6 @@
 {
   "installCommand": "npm install",
-  "buildCommand": "npx tsc",
+  "buildCommand": "npx esbuild src/index.ts --bundle --outfile=dist/index.js --format=esm --platform=browser --target=es2022 --external:node:*",
   "functionFilePath": "dist/index.js",
   "assetsDirectory": "./admin"
 }
