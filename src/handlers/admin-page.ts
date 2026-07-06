@@ -1,11 +1,14 @@
+﻿/**
+ * Copyright (c) 2024 深圳市德诚四方科技有限公司. All rights reserved.
+ */
 import type { Env } from '../types';
 
-/** 处理 Admin Web 界面请求（返回静态 HTML） */
+/** 澶勭悊 Admin Web 鐣岄潰璇锋眰锛堣繑鍥為潤鎬?HTML锛?*/
 export async function handleAdminPage(request: Request, _env: Env): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname;
 
-  // 所有 /admin 路径都返回同一个 SPA
+  // 鎵€鏈?/admin 璺緞閮借繑鍥炲悓涓€涓?SPA
   const html = ADMIN_HTML;
 
   return new Response(html, {
@@ -21,7 +24,7 @@ const ADMIN_HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>锂卫士 - 协议数据库管理</title>
+<title>閿傚崼澹?- 鍗忚鏁版嵁搴撶鐞?/title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
@@ -93,131 +96,131 @@ input.cell-input { width: 100%; padding: 2px 4px; background: transparent; borde
 </head>
 <body>
 
-<!-- 登录页 -->
+<!-- 鐧诲綍椤?-->
 <div class="login" id="loginPage">
   <div class="login-box">
-    <h1>锂卫士 - 协议数据库管理</h1>
+    <h1>閿傚崼澹?- 鍗忚鏁版嵁搴撶鐞?/h1>
     <div class="login-error" id="loginError"></div>
-    <input type="text" id="loginUser" placeholder="用户名" autocomplete="username">
-    <input type="password" id="loginPass" placeholder="密码" autocomplete="current-password">
-    <button onclick="doLogin()">登录</button>
-    <p style="text-align:center;margin-top:12px;font-size:12px;color:var(--text-muted)">默认: admin / admin123</p>
+    <input type="text" id="loginUser" placeholder="鐢ㄦ埛鍚? autocomplete="username">
+    <input type="password" id="loginPass" placeholder="瀵嗙爜" autocomplete="current-password">
+    <button onclick="doLogin()">鐧诲綍</button>
+    <p style="text-align:center;margin-top:12px;font-size:12px;color:var(--text-muted)">榛樿: admin / admin123</p>
   </div>
 </div>
 
-<!-- 主应用 -->
+<!-- 涓诲簲鐢?-->
 <div class="app" id="app">
   <div class="header">
-    <h1>锂卫士 - 协议数据库管理</h1>
+    <h1>閿傚崼澹?- 鍗忚鏁版嵁搴撶鐞?/h1>
     <div class="header-actions">
       <span id="userInfo" style="font-size:13px;color:var(--text-muted)"></span>
-      <button class="btn btn-sm" onclick="showImportModal()">导入</button>
-      <button class="btn btn-sm" onclick="exportData()">导出</button>
-      <button class="btn btn-sm" id="syncBtn" onclick="syncGithub('push')">同步到GitHub</button>
-      <button class="btn btn-sm" onclick="syncGithub('pull')">从GitHub拉取</button>
-      <button class="btn btn-sm" onclick="showUsersModal()">用户管理</button>
-      <button class="btn btn-sm" onclick="doLogout()">退出</button>
+      <button class="btn btn-sm" onclick="showImportModal()">瀵煎叆</button>
+      <button class="btn btn-sm" onclick="exportData()">瀵煎嚭</button>
+      <button class="btn btn-sm" id="syncBtn" onclick="syncGithub('push')">鍚屾鍒癎itHub</button>
+      <button class="btn btn-sm" onclick="syncGithub('pull')">浠嶨itHub鎷夊彇</button>
+      <button class="btn btn-sm" onclick="showUsersModal()">鐢ㄦ埛绠＄悊</button>
+      <button class="btn btn-sm" onclick="doLogout()">閫€鍑?/button>
     </div>
   </div>
   <div class="layout">
     <div class="sidebar">
-      <h3>协议版本</h3>
+      <h3>鍗忚鐗堟湰</h3>
       <div id="versionList"></div>
-      <button class="btn btn-sm" style="margin-top:8px;width:100%" onclick="showNewVersionModal()">+ 新建版本</button>
+      <button class="btn btn-sm" style="margin-top:8px;width:100%" onclick="showNewVersionModal()">+ 鏂板缓鐗堟湰</button>
     </div>
     <div class="main" id="mainContent">
-      <div class="empty">请选择或创建一个协议版本</div>
+      <div class="empty">璇烽€夋嫨鎴栧垱寤轰竴涓崗璁増鏈?/div>
     </div>
   </div>
 </div>
 
-<!-- 导入弹窗 -->
+<!-- 瀵煎叆寮圭獥 -->
 <div class="modal-overlay" id="importModal">
   <div class="modal">
-    <h2>导入协议数据</h2>
+    <h2>瀵煎叆鍗忚鏁版嵁</h2>
     <div class="modal-field">
-      <label>格式</label>
+      <label>鏍煎紡</label>
       <select id="importFormat">
         <option value="json">JSON</option>
         <option value="csv">CSV</option>
       </select>
     </div>
     <div class="modal-field">
-      <label>版本号（CSV 必填，JSON 可选）</label>
-      <input type="text" id="importVersion" placeholder="如 7030">
+      <label>鐗堟湰鍙凤紙CSV 蹇呭～锛孞SON 鍙€夛級</label>
+      <input type="text" id="importVersion" placeholder="濡?7030">
     </div>
     <div class="modal-field">
-      <label>表名（可选）</label>
-      <input type="text" id="importTable" placeholder="表名">
+      <label>琛ㄥ悕锛堝彲閫夛級</label>
+      <input type="text" id="importTable" placeholder="琛ㄥ悕">
     </div>
     <div class="modal-field">
-      <label>文件</label>
+      <label>鏂囦欢</label>
       <input type="file" id="importFile" accept=".json,.csv">
     </div>
     <div class="modal-actions">
-      <button class="btn" onclick="closeModal('importModal')">取消</button>
-      <button class="btn btn-primary" onclick="doImport()">导入</button>
+      <button class="btn" onclick="closeModal('importModal')">鍙栨秷</button>
+      <button class="btn btn-primary" onclick="doImport()">瀵煎叆</button>
     </div>
   </div>
 </div>
 
-<!-- 新建版本弹窗 -->
+<!-- 鏂板缓鐗堟湰寮圭獥 -->
 <div class="modal-overlay" id="newVersionModal">
   <div class="modal">
-    <h2>新建协议版本</h2>
+    <h2>鏂板缓鍗忚鐗堟湰</h2>
     <div class="modal-field">
-      <label>版本号</label>
-      <input type="text" id="newVersion" placeholder="如 7030">
+      <label>鐗堟湰鍙?/label>
+      <input type="text" id="newVersion" placeholder="濡?7030">
     </div>
     <div class="modal-field">
-      <label>表名</label>
-      <input type="text" id="newTable" placeholder="表名">
+      <label>琛ㄥ悕</label>
+      <input type="text" id="newTable" placeholder="琛ㄥ悕">
     </div>
     <div class="modal-actions">
-      <button class="btn" onclick="closeModal('newVersionModal')">取消</button>
-      <button class="btn btn-primary" onclick="createVersion()">创建</button>
+      <button class="btn" onclick="closeModal('newVersionModal')">鍙栨秷</button>
+      <button class="btn btn-primary" onclick="createVersion()">鍒涘缓</button>
     </div>
   </div>
 </div>
 
-<!-- 用户管理弹窗 -->
+<!-- 鐢ㄦ埛绠＄悊寮圭獥 -->
 <div class="modal-overlay" id="usersModal">
   <div class="modal">
-    <h2>用户管理</h2>
+    <h2>鐢ㄦ埛绠＄悊</h2>
     <div id="userList"></div>
     <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-      <h3 style="font-size:14px;margin-bottom:8px">添加用户</h3>
+      <h3 style="font-size:14px;margin-bottom:8px">娣诲姞鐢ㄦ埛</h3>
       <div class="modal-field">
-        <label>用户名</label>
-        <input type="text" id="newUsername" placeholder="用户名">
+        <label>鐢ㄦ埛鍚?/label>
+        <input type="text" id="newUsername" placeholder="鐢ㄦ埛鍚?>
       </div>
       <div class="modal-field">
-        <label>密码</label>
-        <input type="password" id="newUserPass" placeholder="密码">
+        <label>瀵嗙爜</label>
+        <input type="password" id="newUserPass" placeholder="瀵嗙爜">
       </div>
       <div class="modal-field">
-        <label>角色</label>
+        <label>瑙掕壊</label>
         <select id="newUserRole">
-          <option value="viewer">查看者（只读）</option>
-          <option value="editor">编辑者（可编辑）</option>
-          <option value="admin">管理员（全部权限）</option>
+          <option value="viewer">鏌ョ湅鑰咃紙鍙锛?/option>
+          <option value="editor">缂栬緫鑰咃紙鍙紪杈戯級</option>
+          <option value="admin">绠＄悊鍛橈紙鍏ㄩ儴鏉冮檺锛?/option>
         </select>
       </div>
-      <button class="btn btn-primary btn-sm" onclick="addUser()">添加</button>
+      <button class="btn btn-primary btn-sm" onclick="addUser()">娣诲姞</button>
     </div>
     <div class="modal-actions">
-      <button class="btn" onclick="closeModal('usersModal')">关闭</button>
+      <button class="btn" onclick="closeModal('usersModal')">鍏抽棴</button>
     </div>
   </div>
 </div>
 
-<!-- 右键菜单 -->
+<!-- 鍙抽敭鑿滃崟 -->
 <div class="context-menu" id="contextMenu">
-  <button onclick="insertRowAbove()">上方插入行</button>
-  <button onclick="insertRowBelow()">下方插入行</button>
-  <button onclick="copyRows()">复制选中行</button>
-  <button onclick="pasteRows()">粘贴行</button>
-  <button class="danger" onclick="deleteRows()">删除选中行</button>
+  <button onclick="insertRowAbove()">涓婃柟鎻掑叆琛?/button>
+  <button onclick="insertRowBelow()">涓嬫柟鎻掑叆琛?/button>
+  <button onclick="copyRows()">澶嶅埗閫変腑琛?/button>
+  <button onclick="pasteRows()">绮樿创琛?/button>
+  <button class="danger" onclick="deleteRows()">鍒犻櫎閫変腑琛?/button>
 </div>
 
 <script>
@@ -230,7 +233,7 @@ let selectedRows = new Set();
 let copiedRows = [];
 let contextRowIndex = -1;
 
-// ===== 登录 =====
+// ===== 鐧诲綍 =====
 async function doLogin() {
   const username = document.getElementById('loginUser').value;
   const password = document.getElementById('loginPass').value;
@@ -248,10 +251,10 @@ async function doLogin() {
       currentUser = data.data;
       showApp();
     } else {
-      document.getElementById('loginError').textContent = data.error || '登录失败';
+      document.getElementById('loginError').textContent = data.error || '鐧诲綍澶辫触';
     }
   } catch(e) {
-    document.getElementById('loginError').textContent = '网络错误';
+    document.getElementById('loginError').textContent = '缃戠粶閿欒';
   }
 }
 
@@ -281,12 +284,12 @@ async function checkSession() {
   return false;
 }
 
-// ===== 应用主流程 =====
+// ===== 搴旂敤涓绘祦绋?=====
 async function showApp() {
   document.getElementById('loginPage').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   document.getElementById('userInfo').textContent = currentUser.username + ' (' + currentUser.role + ')';
-  // 只读用户隐藏管理按钮
+  // 鍙鐢ㄦ埛闅愯棌绠＄悊鎸夐挳
   if (currentUser.role === 'viewer') {
     document.querySelectorAll('.btn-primary, .btn-danger').forEach(b => b.style.display = 'none');
     document.getElementById('syncBtn').style.display = 'none';
@@ -302,18 +305,18 @@ async function loadVersions() {
       versions = data.data || [];
       renderVersionList();
     }
-  } catch(e) { showToast('加载失败', 'error'); }
+  } catch(e) { showToast('鍔犺浇澶辫触', 'error'); }
 }
 
 function renderVersionList() {
   const el = document.getElementById('versionList');
   if (versions.length === 0) {
-    el.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px">暂无版本</div>';
+    el.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:8px">鏆傛棤鐗堟湰</div>';
     return;
   }
   el.innerHTML = versions.map(v =>
     '<div class="version-item' + (currentVersion === v.version ? ' active' : '') + '" onclick="selectVersion(\\''+v.version+'\\')">' +
-    '<span>'+v.version+'</span><span class="badge">'+v.rowCount+'行</span></div>'
+    '<span>'+v.version+'</span><span class="badge">'+v.rowCount+'琛?/span></div>'
   ).join('');
 }
 
@@ -327,7 +330,7 @@ async function selectVersion(version) {
       currentData = data.data;
       renderTable();
     }
-  } catch(e) { showToast('加载失败', 'error'); }
+  } catch(e) { showToast('鍔犺浇澶辫触', 'error'); }
 }
 
 function renderTable() {
@@ -339,13 +342,13 @@ function renderTable() {
 
   let html = '<div class="toolbar">';
   html += '<span style="font-size:14px;font-weight:600">'+currentData.version+'</span>';
-  html += '<span style="font-size:12px;color:var(--text-muted)">'+(currentData.table||'')+' · '+rows.length+'行 · '+cols.length+'列</span>';
+  html += '<span style="font-size:12px;color:var(--text-muted)">'+(currentData.table||'')+' 路 '+rows.length+'琛?路 '+cols.length+'鍒?/span>';
   if (canEdit) {
-    html += '<button class="btn btn-sm btn-primary" onclick="addRow()">+ 添加行</button>';
-    html += '<button class="btn btn-sm" onclick="addColumn()">+ 添加列</button>';
-    html += '<button class="btn btn-sm btn-danger" onclick="deleteVersion()">删除版本</button>';
+    html += '<button class="btn btn-sm btn-primary" onclick="addRow()">+ 娣诲姞琛?/button>';
+    html += '<button class="btn btn-sm" onclick="addColumn()">+ 娣诲姞鍒?/button>';
+    html += '<button class="btn btn-sm btn-danger" onclick="deleteVersion()">鍒犻櫎鐗堟湰</button>';
   }
-  html += '<button class="btn btn-sm" onclick="selectVersion(\\''+currentVersion+'\\')">刷新</button>';
+  html += '<button class="btn btn-sm" onclick="selectVersion(\\''+currentVersion+'\\')">鍒锋柊</button>';
   html += '</div>';
 
   html += '<div class="table-wrap"><table><thead><tr>';
@@ -367,7 +370,7 @@ function renderTable() {
 
   main.innerHTML = html;
 
-  // 右键菜单
+  // 鍙抽敭鑿滃崟
   if (canEdit) {
     main.querySelectorAll('tbody tr').forEach(tr => {
       tr.addEventListener('contextmenu', (e) => {
@@ -395,7 +398,7 @@ function escapeHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ===== 单元格编辑 =====
+// ===== 鍗曞厓鏍肩紪杈?=====
 function editCell(td) {
   if (td.classList.contains('editing')) return;
   td.classList.add('editing');
@@ -435,15 +438,15 @@ async function saveData() {
     });
     const data = await resp.json();
     if (data.success) {
-      showToast('已保存', 'success');
+      showToast('宸蹭繚瀛?, 'success');
       await loadVersions();
     } else {
-      showToast(data.error || '保存失败', 'error');
+      showToast(data.error || '淇濆瓨澶辫触', 'error');
     }
-  } catch(e) { showToast('保存失败', 'error'); }
+  } catch(e) { showToast('淇濆瓨澶辫触', 'error'); }
 }
 
-// ===== 行操作 =====
+// ===== 琛屾搷浣?=====
 function toggleRow(ri, checked) {
   if (checked) selectedRows.add(ri);
   else selectedRows.delete(ri);
@@ -486,13 +489,13 @@ function addRow() {
 }
 
 function copyRows() {
-  if (selectedRows.size === 0) { showToast('未选中行', 'error'); return; }
+  if (selectedRows.size === 0) { showToast('鏈€変腑琛?, 'error'); return; }
   copiedRows = Array.from(selectedRows).sort((a,b) => a-b).map(ri => ({...currentData.rows[ri]}));
-  showToast('已复制 ' + copiedRows.length + ' 行', 'info');
+  showToast('宸插鍒?' + copiedRows.length + ' 琛?, 'info');
 }
 
 function pasteRows() {
-  if (copiedRows.length === 0) { showToast('剪贴板为空', 'error'); return; }
+  if (copiedRows.length === 0) { showToast('鍓创鏉夸负绌?, 'error'); return; }
   if (!currentData) return;
   const insertAt = contextRowIndex >= 0 ? contextRowIndex + 1 : currentData.rows.length;
   currentData.rows.splice(insertAt, 0, ...copiedRows.map(r => ({...r})));
@@ -501,8 +504,8 @@ function pasteRows() {
 }
 
 function deleteRows() {
-  if (selectedRows.size === 0) { showToast('未选中行', 'error'); return; }
-  if (!confirm('确认删除 ' + selectedRows.size + ' 行？')) return;
+  if (selectedRows.size === 0) { showToast('鏈€変腑琛?, 'error'); return; }
+  if (!confirm('纭鍒犻櫎 ' + selectedRows.size + ' 琛岋紵')) return;
   const indices = Array.from(selectedRows).sort((a,b) => b-a);
   indices.forEach(ri => currentData.rows.splice(ri, 1));
   selectedRows.clear();
@@ -510,10 +513,10 @@ function deleteRows() {
   saveData();
 }
 
-// ===== 列操作 =====
+// ===== 鍒楁搷浣?=====
 function addColumn() {
   if (!currentData) return;
-  const name = prompt('列名:');
+  const name = prompt('鍒楀悕:');
   if (!name) return;
   currentData.columns.push(name);
   currentData.rows.forEach(r => r[name] = '');
@@ -524,7 +527,7 @@ function addColumn() {
 function renameColumn(ci) {
   if (!currentData) return;
   const oldName = currentData.columns[ci];
-  const newName = prompt('重命名列:', oldName);
+  const newName = prompt('閲嶅懡鍚嶅垪:', oldName);
   if (!newName || newName === oldName) return;
   currentData.columns[ci] = newName;
   currentData.rows.forEach(r => {
@@ -535,13 +538,13 @@ function renameColumn(ci) {
   saveData();
 }
 
-// ===== 版本操作 =====
+// ===== 鐗堟湰鎿嶄綔 =====
 function showNewVersionModal() { document.getElementById('newVersionModal').classList.add('show'); }
 
 async function createVersion() {
   const version = document.getElementById('newVersion').value.trim();
   const table = document.getElementById('newTable').value.trim();
-  if (!version) { showToast('请输入版本号', 'error'); return; }
+  if (!version) { showToast('璇疯緭鍏ョ増鏈彿', 'error'); return; }
   try {
     const resp = await fetch('/api/admin/protocols/' + encodeURIComponent(version), {
       method: 'POST',
@@ -553,18 +556,18 @@ async function createVersion() {
       closeModal('newVersionModal');
       document.getElementById('newVersion').value = '';
       document.getElementById('newTable').value = '';
-      showToast('已创建', 'success');
+      showToast('宸插垱寤?, 'success');
       await loadVersions();
       selectVersion(version);
     } else {
-      showToast(data.error || '创建失败', 'error');
+      showToast(data.error || '鍒涘缓澶辫触', 'error');
     }
-  } catch(e) { showToast('创建失败', 'error'); }
+  } catch(e) { showToast('鍒涘缓澶辫触', 'error'); }
 }
 
 async function deleteVersion() {
   if (!currentVersion) return;
-  if (!confirm('确认删除版本 ' + currentVersion + '？此操作不可恢复！')) return;
+  if (!confirm('纭鍒犻櫎鐗堟湰 ' + currentVersion + '锛熸鎿嶄綔涓嶅彲鎭㈠锛?)) return;
   try {
     const resp = await fetch('/api/admin/protocols/' + encodeURIComponent(currentVersion), {
       method: 'DELETE',
@@ -572,23 +575,23 @@ async function deleteVersion() {
     });
     const data = await resp.json();
     if (data.success) {
-      showToast('已删除', 'success');
+      showToast('宸插垹闄?, 'success');
       currentVersion = null;
       currentData = null;
-      document.getElementById('mainContent').innerHTML = '<div class="empty">请选择或创建一个协议版本</div>';
+      document.getElementById('mainContent').innerHTML = '<div class="empty">璇烽€夋嫨鎴栧垱寤轰竴涓崗璁増鏈?/div>';
       await loadVersions();
     } else {
-      showToast(data.error || '删除失败', 'error');
+      showToast(data.error || '鍒犻櫎澶辫触', 'error');
     }
-  } catch(e) { showToast('删除失败', 'error'); }
+  } catch(e) { showToast('鍒犻櫎澶辫触', 'error'); }
 }
 
-// ===== 导入导出 =====
+// ===== 瀵煎叆瀵煎嚭 =====
 function showImportModal() { document.getElementById('importModal').classList.add('show'); }
 
 async function doImport() {
   const file = document.getElementById('importFile').files[0];
-  if (!file) { showToast('请选择文件', 'error'); return; }
+  if (!file) { showToast('璇烽€夋嫨鏂囦欢', 'error'); return; }
   const format = document.getElementById('importFormat').value;
   const version = document.getElementById('importVersion').value.trim();
   const table = document.getElementById('importTable').value.trim();
@@ -611,19 +614,19 @@ async function doImport() {
       showToast(data.message, 'success');
       await loadVersions();
     } else {
-      showToast(data.error || '导入失败', 'error');
+      showToast(data.error || '瀵煎叆澶辫触', 'error');
     }
-  } catch(e) { showToast('导入失败', 'error'); }
+  } catch(e) { showToast('瀵煎叆澶辫触', 'error'); }
 }
 
 async function exportData() {
-  const format = confirm('点击确定导出JSON，取消导出CSV') ? 'json' : 'csv';
+  const format = confirm('鐐瑰嚮纭畾瀵煎嚭JSON锛屽彇娑堝鍑篊SV') ? 'json' : 'csv';
   window.open('/api/admin/protocols/export?format=' + format + '&token=' + token, '_blank');
 }
 
-// ===== GitHub 同步 =====
+// ===== GitHub 鍚屾 =====
 async function syncGithub(direction) {
-  showToast(direction === 'push' ? '正在同步到 GitHub...' : '正在从 GitHub 拉取...', 'info');
+  showToast(direction === 'push' ? '姝ｅ湪鍚屾鍒?GitHub...' : '姝ｅ湪浠?GitHub 鎷夊彇...', 'info');
   try {
     const resp = await fetch('/api/admin/protocols/sync-github?direction=' + direction, {
       method: 'POST',
@@ -634,14 +637,14 @@ async function syncGithub(direction) {
       showToast(data.message, 'success');
       if (direction === 'pull') await loadVersions();
     } else {
-      showToast(data.error || data.message || '同步失败', 'error');
+      showToast(data.error || data.message || '鍚屾澶辫触', 'error');
     }
-  } catch(e) { showToast('同步失败', 'error'); }
+  } catch(e) { showToast('鍚屾澶辫触', 'error'); }
 }
 
-// ===== 用户管理 =====
+// ===== 鐢ㄦ埛绠＄悊 =====
 async function showUsersModal() {
-  if (currentUser.role !== 'admin') { showToast('仅管理员可管理用户', 'error'); return; }
+  if (currentUser.role !== 'admin') { showToast('浠呯鐞嗗憳鍙鐞嗙敤鎴?, 'error'); return; }
   document.getElementById('usersModal').classList.add('show');
   try {
     const resp = await fetch('/api/admin/users', { headers: authHeaders() });
@@ -650,7 +653,7 @@ async function showUsersModal() {
       const el = document.getElementById('userList');
       el.innerHTML = data.data.map(u =>
         '<div class="user-row"><div><span>'+u.username+'</span> <span class="role-badge role-'+u.role+'">'+u.role+'</span></div>' +
-        (u.id !== currentUser.userId ? '<button class="btn btn-sm btn-danger" onclick="deleteUser(\\''+u.id+'\\')">删除</button>' : '') +
+        (u.id !== currentUser.userId ? '<button class="btn btn-sm btn-danger" onclick="deleteUser(\\''+u.id+'\\')">鍒犻櫎</button>' : '') +
         '</div>'
       ).join('');
     }
@@ -661,7 +664,7 @@ async function addUser() {
   const username = document.getElementById('newUsername').value.trim();
   const password = document.getElementById('newUserPass').value;
   const role = document.getElementById('newUserRole').value;
-  if (!username || !password) { showToast('用户名和密码不能为空', 'error'); return; }
+  if (!username || !password) { showToast('鐢ㄦ埛鍚嶅拰瀵嗙爜涓嶈兘涓虹┖', 'error'); return; }
   try {
     const resp = await fetch('/api/admin/users', {
       method: 'POST',
@@ -670,27 +673,27 @@ async function addUser() {
     });
     const data = await resp.json();
     if (data.success) {
-      showToast('用户已添加', 'success');
+      showToast('鐢ㄦ埛宸叉坊鍔?, 'success');
       document.getElementById('newUsername').value = '';
       document.getElementById('newUserPass').value = '';
       showUsersModal();
     } else {
-      showToast(data.error || '添加失败', 'error');
+      showToast(data.error || '娣诲姞澶辫触', 'error');
     }
-  } catch(e) { showToast('添加失败', 'error'); }
+  } catch(e) { showToast('娣诲姞澶辫触', 'error'); }
 }
 
 async function deleteUser(id) {
-  if (!confirm('确认删除此用户？')) return;
+  if (!confirm('纭鍒犻櫎姝ょ敤鎴凤紵')) return;
   try {
     const resp = await fetch('/api/admin/users/' + id, { method: 'DELETE', headers: authHeaders() });
     const data = await resp.json();
-    if (data.success) { showToast('已删除', 'success'); showUsersModal(); }
-    else { showToast(data.error || '删除失败', 'error'); }
-  } catch(e) { showToast('删除失败', 'error'); }
+    if (data.success) { showToast('宸插垹闄?, 'success'); showUsersModal(); }
+    else { showToast(data.error || '鍒犻櫎澶辫触', 'error'); }
+  } catch(e) { showToast('鍒犻櫎澶辫触', 'error'); }
 }
 
-// ===== 工具 =====
+// ===== 宸ュ叿 =====
 function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 
 function showToast(msg, type) {
@@ -701,7 +704,7 @@ function showToast(msg, type) {
   setTimeout(() => t.remove(), 3000);
 }
 
-// ===== 键盘快捷键 =====
+// ===== 閿洏蹇嵎閿?=====
 document.addEventListener('keydown', (e) => {
   if (e.ctrlKey && e.key === 'c' && selectedRows.size > 0 && !e.target.matches('input')) {
     e.preventDefault(); copyRows();
@@ -714,7 +717,7 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// ===== 初始化 =====
+// ===== 鍒濆鍖?=====
 (async function() {
   if (await checkSession()) {
     showApp();
@@ -724,7 +727,7 @@ document.addEventListener('keydown', (e) => {
   }
 })();
 
-// 回车登录
+// 鍥炶溅鐧诲綍
 document.getElementById('loginPass').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') doLogin();
 });
