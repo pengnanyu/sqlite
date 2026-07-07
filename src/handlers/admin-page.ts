@@ -24,7 +24,7 @@ const ADMIN_HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>锂卫士 - 协议数据库管理</title>
+<title>锂护卫 - 协议数据库管理</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 :root {
@@ -99,7 +99,7 @@ input.cell-input { width: 100%; padding: 2px 4px; background: transparent; borde
 <!-- 登录页 -->
 <div class="login" id="loginPage">
   <div class="login-box">
-    <h1>锂卫士 - 协议数据库管理</h1>
+    <h1>锂护卫 - 协议数据库管理</h1>
     <div class="login-error" id="loginError"></div>
     <input type="text" id="loginUser" placeholder="用户名" autocomplete="username">
     <input type="password" id="loginPass" placeholder="密码" autocomplete="current-password">
@@ -111,7 +111,7 @@ input.cell-input { width: 100%; padding: 2px 4px; background: transparent; borde
 <!-- 主应用 -->
 <div class="app" id="app">
   <div class="header">
-    <h1>锂卫士 - 协议数据库管理</h1>
+    <h1>锂护卫 - 协议数据库管理</h1>
     <div class="header-actions">
       <span id="userInfo" style="font-size:13px;color:var(--text-muted)"></span>
       <button class="btn btn-sm" onclick="showImportModal()">导入</button>
