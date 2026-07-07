@@ -1,20 +1,20 @@
-﻿/**
+/**
  * Copyright (c) 2024 深圳市德诚四方科技有限公司. All rights reserved.
  */
 import type { Env, User, Session } from '../types';
 
 const USERS_KEY = 'auth:users';
 const SESSION_PREFIX = 'auth:session:';
-const SESSION_TTL = 7 * 24 * 60 * 60 * 1000; // 7澶?
+const SESSION_TTL = 7 * 24 * 60 * 60 * 1000; // 7天
 
-/** 绠€鍗曠殑瀛楃涓插搱甯岋紙闈炲姞瀵嗗畨鍏紝浣嗚冻澶熺敤浜庤竟缂樺嚱鏁帮級 */
+/** 简单的字符串哈希（非加密安全，但足够用于边缘函数） */
 function hashPassword(password: string, salt: string): string {
-  // 浣跨敤 SubtleCrypto API
-  // 鍦?Edge Runtime 涓彲鐢?
-  return password + ':' + salt; // 鍗犱綅锛屽疄闄呭湪 async 鍑芥暟涓鐞?
+  // 使用 SubtleCrypto API
+  // 在 Edge Runtime 中可用
+  return password + ':' + salt; // 占位，实际在 async 函数中处理
 }
 
-/** 浣跨敤 Web Crypto API 鍝堝笇瀵嗙爜 */
+/** 使用 Web Crypto API 哈希密码 */
 export async function hashPwd(password: string): Promise<string> {
   const salt = crypto.randomUUID();
   const data = new TextEncoder().encode(password + salt);
@@ -22,7 +22,7 @@ export async function hashPwd(password: string): Promise<string> {
   return salt + ':' + bufToHex(hash);
 }
 
-/** 楠岃瘉瀵嗙爜 */
+/** 验证密码 */
 export async function verifyPwd(password: string, stored: string): Promise<boolean> {
   const [salt, hashHex] = stored.split(':');
   if (!salt || !hashHex) return false;
@@ -31,12 +31,12 @@ export async function verifyPwd(password: string, stored: string): Promise<boole
   return bufToHex(hash) === hashHex;
 }
 
-/** 鐢熸垚浼氳瘽 token */
+/** 生成会话 token */
 export function generateToken(): string {
   return crypto.randomUUID() + '-' + Date.now().toString(36);
 }
 
-/** 鍒涘缓浼氳瘽 */
+/** 创建会话 */
 export async function createSession(env: Env, user: User): Promise<Session> {
   const session: Session = {
     token: generateToken(),
@@ -53,7 +53,7 @@ export async function createSession(env: Env, user: User): Promise<Session> {
   return session;
 }
 
-/** 鑾峰彇浼氳瘽 */
+/** 获取会话 */
 export async function getSession(env: Env, token: string): Promise<Session | null> {
   if (!token) return null;
   const raw = await env.AUTH_KV.get(SESSION_PREFIX + token);
@@ -70,12 +70,12 @@ export async function getSession(env: Env, token: string): Promise<Session | nul
   }
 }
 
-/** 鍒犻櫎浼氳瘽 */
+/** 删除会话 */
 export async function deleteSession(env: Env, token: string): Promise<void> {
   await env.AUTH_KV.delete(SESSION_PREFIX + token);
 }
 
-/** 鑾峰彇鎵€鏈夌敤鎴?*/
+/** 获取所有用户 */
 export async function getUsers(env: Env): Promise<User[]> {
   const raw = await env.AUTH_KV.get(USERS_KEY);
   if (!raw) return [];
@@ -86,12 +86,12 @@ export async function getUsers(env: Env): Promise<User[]> {
   }
 }
 
-/** 淇濆瓨鐢ㄦ埛鍒楄〃 */
+/** 保存用户列表 */
 export async function saveUsers(env: Env, users: User[]): Promise<void> {
   await env.AUTH_KV.put(USERS_KEY, JSON.stringify(users));
 }
 
-/** 鍒濆鍖栭粯璁ょ敤鎴凤紙棣栨杩愯锛?*/
+/** 初始化默认用户（首次运行） */
 export async function initDefaultUsers(env: Env): Promise<void> {
   const existing = await getUsers(env);
   if (existing.length > 0) return;
@@ -105,7 +105,7 @@ export async function initDefaultUsers(env: Env): Promise<void> {
   await saveUsers(env, [defaultUser]);
 }
 
-/** 浠庤姹備腑鎻愬彇 token */
+/** 从请求中提取 token */
 export function extractToken(request: Request): string {
   const auth = request.headers.get('Authorization');
   if (auth && auth.startsWith('Bearer ')) {
@@ -117,14 +117,14 @@ export function extractToken(request: Request): string {
   return '';
 }
 
-/** 浠庤姹備腑楠岃瘉鐢ㄦ埛韬唤 */
+/** 从请求中验证用户身份 */
 export async function authenticate(env: Env, request: Request): Promise<Session | null> {
   const token = extractToken(request);
   if (!token) return null;
   return getSession(env, token);
 }
 
-/** Buffer 杞?Hex */
+/** Buffer 转 Hex */
 function bufToHex(buf: ArrayBuffer): string {
   return Array.from(new Uint8Array(buf))
     .map(b => b.toString(16).padStart(2, '0'))
