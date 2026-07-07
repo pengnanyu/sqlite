@@ -2,9 +2,7 @@
   "installCommand": "npm install",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "assets": {
-    "directory": "dist"
-  },
+  "functionJsFilePath": "dist/_worker.js",
   "routes": {
     "include": [
       "/*"
