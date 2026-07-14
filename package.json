@@ -2,15 +2,12 @@
   "name": "sqlite-online",
   "version": "1.0.0",
   "private": true,
-  "description": "模拟SQLite在线数据库 - 阿里云函数+KV存储",
   "scripts": {
-    "dev": "node server.js",
-    "start": "node server.js",
-    "build": "node build.js",
-    "deploy": "npx @alicloud/fc-cli deploy"
+    "build": "node build.mjs",
+    "dev": "node build.mjs"
   },
-  "dependencies": {
-    "sql.js": "^1.10.3"
-  },
-  "devDependencies": {}
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "@cloudflare/workers-types": "^4.20241106.0"
+  }
 }
