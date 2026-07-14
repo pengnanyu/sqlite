@@ -2,9 +2,8 @@
   // ESA Pages 配置
   "name": "sqlite-online",
   "build": {
-    // 无需构建，直接部署静态文件
-    "command": "",
-    "outputDirectory": "/"
+    "command": "npm run build",
+    "outputDirectory": "dist"
   },
   "routes": [
     // SPA 路由：所有非静态文件请求返回 index.html
