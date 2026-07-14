@@ -128,7 +128,12 @@ input, textarea, select, button { font-family: inherit; font-size: inherit; }
 }
 .empty-icon { font-size: 48px; opacity: 0.5; }
 .empty-state h3 { font-size: 16px; color: var(--fg2); }
-.empty-state p { font-size: 13px; }
+.empty-state p { font-size: 13px; margin-bottom: 8px; }
+.empty-actions { display: flex; gap: 8px; margin-top: 12px; }
+.sidebar-empty { padding: 16px; text-align: center; color: var(--fg3); font-size: 12px; }
+.import-row { margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.import-row label { font-size: 13px; color: var(--fg2); white-space: nowrap; }
+.import-row .input-sm { flex: 1; }
 
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);

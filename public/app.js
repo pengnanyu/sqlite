@@ -10,18 +10,22 @@ let saveTimer = null;
 
 async function initSQL() {
   if (SQL) return SQL;
-  SQL = await window.initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}` });
+  try {
+    SQL = await window.initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}` });
+  } catch (e) {
+    console.error('sql.js init failed:', e);
+  }
   return SQL;
 }
 
 async function loadDb(name) {
   if (dbInstances[name]) return dbInstances[name];
   const sql = await initSQL();
+  if (!sql) return null;
   const saved = await IDB.get(`db:${name}`);
   let db;
-  if (saved) {
-    const buf = new Uint8Array(saved);
-    db = new sql.Database(buf);
+  if (saved && saved.length > 0) {
+    db = new sql.Database(new Uint8Array(saved));
   } else {
     db = new sql.Database();
   }
@@ -42,21 +46,25 @@ function debounceSave(name) {
 }
 
 function queryDb(db, sql, params = []) {
-  const stmt = db.prepare(sql);
-  if (params.length > 0) stmt.bind(params);
-  const results = [];
-  const columns = stmt.getColumnNames();
-  while (stmt.step()) {
-    const row = {};
-    const values = stmt.get();
-    columns.forEach((col, i) => { row[col] = values[i]; });
-    results.push(row);
+  try {
+    const stmt = db.prepare(sql);
+    if (params.length > 0) stmt.bind(params);
+    const results = [];
+    const columns = stmt.getColumnNames();
+    while (stmt.step()) {
+      const row = {};
+      const values = stmt.get();
+      columns.forEach((col, i) => { row[col] = values[i]; });
+      results.push(row);
+    }
+    stmt.free();
+    return { columns, results };
+  } catch (e) {
+    return { columns: [], results: [], error: e.message };
   }
-  stmt.free();
-  return { columns, results };
 }
 
-function $(sel, parent = document) { return parent.querySelector(sel); }
+function $(sel) { return document.querySelector(sel); }
 
 function el(tag, attrs = {}, children = []) {
   const e = document.createElement(tag);
@@ -75,6 +83,29 @@ function el(tag, attrs = {}, children = []) {
   return e;
 }
 
+function showModal(title, content, actions) {
+  const existing = $('.modal-overlay');
+  if (existing) existing.remove();
+  const overlay = el('div', { className: 'modal-overlay' });
+  const modal = el('div', { className: 'modal' });
+  modal.appendChild(el('h3', { textContent: title }));
+  if (typeof content === 'string') modal.appendChild(el('div', { innerHTML: content }));
+  else if (content) modal.appendChild(content);
+  if (actions) {
+    const bar = el('div', { className: 'modal-actions' });
+    for (const a of actions) bar.appendChild(a);
+    modal.appendChild(bar);
+  }
+  overlay.appendChild(modal);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+function closeModals() {
+  document.querySelectorAll('.modal-overlay').forEach(o => o.remove());
+}
+
 function render() {
   const app = $('#app');
   app.innerHTML = '';
@@ -86,25 +117,34 @@ function renderLayout() {
 }
 
 function renderSidebar() {
-  return el('div', { className: 'sidebar' }, [
-    el('div', { className: 'sidebar-header' }, [
-      el('h2', { textContent: 'SQLite Online' }),
-      el('button', { className: 'btn btn-sm btn-primary', textContent: '+ 新建', onClick: createDatabase }),
-    ]),
-    el('div', { className: 'db-list', id: 'db-list' }),
-  ]);
+  const sidebar = el('div', { className: 'sidebar' });
+  sidebar.appendChild(el('div', { className: 'sidebar-header' }, [
+    el('h2', { textContent: 'SQLite Online' }),
+    el('button', { className: 'btn btn-sm btn-primary', textContent: '+ 新建', onClick: showCreateDbDialog }),
+  ]));
+  sidebar.appendChild(el('div', { className: 'db-list', id: 'db-list' }));
+  return sidebar;
 }
 
-async function createDatabase() {
-  const name = prompt('数据库名称:');
-  if (!name || !name.trim()) return;
-  const db = await loadDb(name.trim());
-  await saveDb(name.trim());
-  currentDb = name.trim();
-  currentTable = null;
-  selectedRows.clear();
-  render();
-  await refreshSidebar();
+function showCreateDbDialog() {
+  const input = el('input', { type: 'text', id: 'new-db-name', placeholder: '输入数据库名称', className: 'input-sm', style: { width: '100%' } });
+  const overlay = showModal('新建数据库', input, [
+    el('button', { className: 'btn', textContent: '取消', onClick: closeModals }),
+    el('button', { className: 'btn btn-primary', textContent: '创建', onClick: async () => {
+      const name = input.value?.trim();
+      if (!name) return;
+      const db = await loadDb(name);
+      if (!db) { alert('初始化失败'); return; }
+      await saveDb(name);
+      currentDb = name;
+      currentTable = null;
+      selectedRows.clear();
+      closeModals();
+      render();
+      await refreshSidebar();
+    }}),
+  ]);
+  setTimeout(() => { input.focus(); }, 100);
 }
 
 async function refreshSidebar() {
@@ -113,6 +153,10 @@ async function refreshSidebar() {
   const keys = await IDB.list('db:');
   const databases = keys.map(k => k.replace('db:', ''));
   container.innerHTML = '';
+  if (databases.length === 0) {
+    container.appendChild(el('div', { className: 'sidebar-empty', textContent: '暂无数据库' }));
+    return;
+  }
   for (const db of databases) {
     const item = el('div', { className: `db-item ${db === currentDb ? 'active' : ''}` });
     item.appendChild(el('span', { className: 'db-name', textContent: db, onClick: () => selectDb(db) }));
@@ -182,17 +226,25 @@ function renderMain() {
       el('div', { className: 'empty-icon', innerHTML: '&#128451;' }),
       el('h3', { textContent: '选择或创建数据库' }),
       el('p', { textContent: '从左侧选择数据库，或点击"新建"创建' }),
+      el('div', { className: 'empty-actions' }, [
+        el('button', { className: 'btn btn-primary', textContent: '新建数据库', onClick: showCreateDbDialog }),
+        el('button', { className: 'btn', textContent: '导入文件', onClick: showImportDialog }),
+      ]),
     ]));
     return main;
   }
   main.appendChild(renderToolbar());
   if (currentTable) {
-    main.appendChild(renderTable());
+    main.appendChild(renderTableView());
     main.appendChild(renderPagination());
   } else {
     main.appendChild(el('div', { className: 'empty-state' }, [
       el('div', { className: 'empty-icon', innerHTML: '&#128203;' }),
       el('h3', { textContent: '选择数据表' }),
+      el('div', { className: 'empty-actions' }, [
+        el('button', { className: 'btn btn-primary', textContent: '新建表', onClick: showCreateTableDialog }),
+        el('button', { className: 'btn', textContent: '导入文件', onClick: showImportDialog }),
+      ]),
     ]));
   }
   return main;
@@ -200,7 +252,7 @@ function renderMain() {
 
 function renderToolbar() {
   const right = [
-    el('button', { className: 'btn btn-sm', textContent: '新建表', onClick: createTable }),
+    el('button', { className: 'btn btn-sm', textContent: '新建表', onClick: showCreateTableDialog }),
     el('button', { className: 'btn btn-sm', textContent: '导入', onClick: showImportDialog }),
     el('button', { className: 'btn btn-sm', textContent: '导出', onClick: exportDb }),
     el('button', { className: 'btn btn-sm', textContent: 'SQL', onClick: showSqlEditor }),
@@ -209,8 +261,8 @@ function renderToolbar() {
     right.push(el('button', { className: 'btn btn-sm btn-danger', textContent: '删表', onClick: dropTable }));
   }
   if (selectedRows.size > 0) {
-    right.push(el('button', { className: 'btn btn-sm btn-danger', textContent: `删除选中(${selectedRows.size})`, onClick: deleteSelected }));
-    right.push(el('button', { className: 'btn btn-sm', textContent: '复制选中', onClick: copySelected }));
+    right.push(el('button', { className: 'btn btn-sm btn-danger', textContent: `删除(${selectedRows.size})`, onClick: deleteSelected }));
+    right.push(el('button', { className: 'btn btn-sm', textContent: '复制', onClick: copySelected }));
   }
   if (clipboardRows.length > 0) {
     right.push(el('button', { className: 'btn btn-sm', textContent: `粘贴(${clipboardRows.length})`, onClick: pasteRows }));
@@ -224,19 +276,33 @@ function renderToolbar() {
   ]);
 }
 
-async function createTable() {
-  const name = prompt('表名称:');
-  if (!name || !name.trim()) return;
-  const colDef = prompt('列定义 (如: id INTEGER PRIMARY KEY, name TEXT, value REAL):');
-  if (!colDef) return;
-  const db = dbInstances[currentDb];
-  if (!db) return;
-  db.run(`CREATE TABLE IF NOT EXISTS "${name.trim()}" (${colDef})`);
-  await saveDb(currentDb);
-  currentTable = name.trim();
-  loadTableData();
-  render();
-  await refreshSidebar();
+function showCreateTableDialog() {
+  const nameInput = el('input', { type: 'text', id: 'new-table-name', placeholder: '表名称', className: 'input-sm', style: { width: '100%', marginBottom: '8px' } });
+  const colInput = el('input', { type: 'text', id: 'new-table-cols', placeholder: '列定义 (如: id INTEGER PRIMARY KEY, name TEXT, value REAL)', className: 'input-sm', style: { width: '100%' } });
+  const content = el('div', {}, [nameInput, colInput]);
+  showModal('新建表', content, [
+    el('button', { className: 'btn', textContent: '取消', onClick: closeModals }),
+    el('button', { className: 'btn btn-primary', textContent: '创建', onClick: async () => {
+      const name = nameInput.value?.trim();
+      const colDef = colInput.value?.trim();
+      if (!name) return;
+      const db = dbInstances[currentDb];
+      if (!db) return;
+      const sql = colDef ? `CREATE TABLE IF NOT EXISTS "${name}" (${colDef})` : `CREATE TABLE IF NOT EXISTS "${name}" (id INTEGER PRIMARY KEY AUTOINCREMENT)`;
+      try {
+        db.run(sql);
+        await saveDb(currentDb);
+        currentTable = name;
+        loadTableData();
+        closeModals();
+        render();
+        await refreshSidebar();
+      } catch (e) {
+        alert('建表失败: ' + e.message);
+      }
+    }}),
+  ]);
+  setTimeout(() => { nameInput.focus(); }, 100);
 }
 
 async function dropTable() {
@@ -261,10 +327,10 @@ async function exportDb() {
   URL.revokeObjectURL(url);
 }
 
-function renderTable() {
+function renderTableView() {
   const container = el('div', { className: 'table-container' });
   if (!tableData.columns || tableData.columns.length === 0) {
-    container.appendChild(el('div', { className: 'empty-state', textContent: '空表' }));
+    container.appendChild(el('div', { className: 'empty-state', textContent: '空表 - 双击单元格可编辑' }));
     return container;
   }
   const table = el('table', { className: 'data-table' });
@@ -317,11 +383,7 @@ function startEditCell(rowIdx, col, td) {
   const row = tableData.results[rowIdx];
   const val = row[col];
   editingCell = { rowIdx, col, originalValue: val };
-  const input = el('input', {
-    type: 'text',
-    value: val === null ? '' : String(val),
-    className: 'cell-editor',
-  });
+  const input = el('input', { type: 'text', value: val === null ? '' : String(val), className: 'cell-editor' });
   input.addEventListener('blur', () => finishEditCell(input));
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); finishEditCell(input); }
@@ -418,18 +480,13 @@ function renderPagination() {
 }
 
 function showSqlEditor() {
-  const overlay = el('div', { className: 'modal-overlay', onClick: (e) => { if (e.target === overlay) overlay.remove(); } });
-  const modal = el('div', { className: 'modal' }, [
-    el('h3', { textContent: '执行 SQL' }),
-    el('textarea', { className: 'sql-editor', id: 'sql-input', placeholder: 'SELECT * FROM table_name', rows: 8 }),
-    el('div', { className: 'modal-actions' }, [
-      el('button', { className: 'btn btn-primary', textContent: '执行', onClick: executeSql }),
-      el('button', { className: 'btn', textContent: '关闭', onClick: () => overlay.remove() }),
-    ]),
-    el('div', { id: 'sql-result', className: 'sql-result' }),
+  const textarea = el('textarea', { className: 'sql-editor', id: 'sql-input', placeholder: 'SELECT * FROM table_name', rows: 8 });
+  const resultDiv = el('div', { id: 'sql-result', className: 'sql-result' });
+  const content = el('div', {}, [textarea, resultDiv]);
+  showModal('执行 SQL', content, [
+    el('button', { className: 'btn', textContent: '关闭', onClick: closeModals }),
+    el('button', { className: 'btn btn-primary', textContent: '执行', onClick: executeSql }),
   ]);
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
 }
 
 async function executeSql() {
@@ -442,6 +499,7 @@ async function executeSql() {
     const upper = sqlText.toUpperCase().trim();
     if (upper.startsWith('SELECT') || upper.startsWith('PRAGMA')) {
       const data = queryDb(db, sqlText);
+      if (data.error) { resultDiv.textContent = '错误: ' + data.error; resultDiv.className = 'sql-result error'; return; }
       let html = `<p>${data.results.length} 行</p><table class="data-table"><thead><tr>`;
       for (const c of data.columns) html += `<th>${c}</th>`;
       html += '</tr></thead><tbody>';
@@ -452,10 +510,12 @@ async function executeSql() {
       }
       html += '</tbody></table>';
       resultDiv.innerHTML = html;
+      resultDiv.className = 'sql-result';
     } else {
       db.run(sqlText);
       await saveDb(currentDb);
       resultDiv.textContent = '执行成功';
+      resultDiv.className = 'sql-result';
       await refreshSidebar();
     }
   } catch (e) {
@@ -465,39 +525,40 @@ async function executeSql() {
 }
 
 function showImportDialog() {
-  const overlay = el('div', { className: 'modal-overlay', onClick: (e) => { if (e.target === overlay) overlay.remove(); } });
-  const modal = el('div', { className: 'modal' }, [
-    el('h3', { textContent: '导入数据' }),
-    el('div', { className: 'import-options' }, [
-      el('label', { className: 'import-label' }, [
-        el('input', { type: 'radio', name: 'import-type', value: 'db', checked: true }), ' .db 文件',
-      ]),
-      el('label', { className: 'import-label' }, [
-        el('input', { type: 'radio', name: 'import-type', value: 'csv' }), ' .csv 文件',
-      ]),
-    ]),
-    el('div', { className: 'import-options' }, [
-      el('label', { className: 'import-label' }, [
-        el('input', { type: 'radio', name: 'import-mode', value: 'replace', checked: true }), ' 替换',
-      ]),
-      el('label', { className: 'import-label' }, [
-        el('input', { type: 'radio', name: 'import-mode', value: 'merge' }), ' 增量合并',
-      ]),
-    ]),
-    el('input', { type: 'file', id: 'import-file', accept: '.db,.csv,.sqlite', className: 'file-input' }),
-    el('div', { id: 'csv-table-name', style: { display: 'none' } }, [
-      el('label', { textContent: 'CSV表名: ' }),
-      el('input', { type: 'text', id: 'csv-table', placeholder: 'table_name', className: 'input-sm' }),
-    ]),
-    el('div', { className: 'modal-actions' }, [
-      el('button', { className: 'btn btn-primary', textContent: '导入', onClick: doImport }),
-      el('button', { className: 'btn', textContent: '取消', onClick: () => overlay.remove() }),
-    ]),
-    el('div', { id: 'import-status' }),
+  const dbNameRow = el('div', { className: 'import-row' }, [
+    el('label', { textContent: '目标数据库: ' }),
+    el('input', { type: 'text', id: 'import-db-name', placeholder: '数据库名称(新建或已有)', className: 'input-sm', value: currentDb || '' }),
   ]);
-  overlay.appendChild(modal);
-  document.body.appendChild(overlay);
-  modal.querySelectorAll('input[name="import-type"]').forEach(r => {
+  const typeRow = el('div', { className: 'import-options' }, [
+    el('label', { className: 'import-label' }, [
+      el('input', { type: 'radio', name: 'import-type', value: 'db', checked: true }), ' .db 文件',
+    ]),
+    el('label', { className: 'import-label' }, [
+      el('input', { type: 'radio', name: 'import-type', value: 'csv' }), ' .csv 文件',
+    ]),
+  ]);
+  const modeRow = el('div', { className: 'import-options' }, [
+    el('label', { className: 'import-label' }, [
+      el('input', { type: 'radio', name: 'import-mode', value: 'replace', checked: true }), ' 替换',
+    ]),
+    el('label', { className: 'import-label' }, [
+      el('input', { type: 'radio', name: 'import-mode', value: 'merge' }), ' 增量合并',
+    ]),
+  ]);
+  const fileRow = el('input', { type: 'file', id: 'import-file', accept: '.db,.csv,.sqlite', className: 'file-input' });
+  const csvNameRow = el('div', { id: 'csv-table-name', style: { display: 'none' } }, [
+    el('label', { textContent: 'CSV表名: ' }),
+    el('input', { type: 'text', id: 'csv-table', placeholder: 'table_name', className: 'input-sm' }),
+  ]);
+  const statusDiv = el('div', { id: 'import-status' });
+  const content = el('div', {}, [dbNameRow, typeRow, modeRow, fileRow, csvNameRow, statusDiv]);
+
+  showModal('导入数据', content, [
+    el('button', { className: 'btn', textContent: '取消', onClick: closeModals }),
+    el('button', { className: 'btn btn-primary', textContent: '导入', onClick: doImport }),
+  ]);
+
+  document.querySelectorAll('input[name="import-type"]').forEach(r => {
     r.addEventListener('change', () => {
       const csvOpts = $('#csv-table-name');
       if (csvOpts) csvOpts.style.display = r.value === 'csv' && r.checked ? 'block' : 'none';
@@ -509,17 +570,27 @@ async function doImport() {
   const fileInput = $('#import-file');
   const file = fileInput?.files?.[0];
   if (!file) { alert('请选择文件'); return; }
+
+  const dbName = $('#import-db-name')?.value?.trim();
+  if (!dbName) { alert('请输入数据库名称'); return; }
+
   const importType = document.querySelector('input[name="import-type"]:checked')?.value || 'db';
   const importMode = document.querySelector('input[name="import-mode"]:checked')?.value || 'replace';
   const statusDiv = $('#import-status');
   if (statusDiv) statusDiv.textContent = '导入中...';
 
   try {
+    if (!currentDb || currentDb !== dbName) {
+      currentDb = dbName;
+      await loadDb(dbName);
+    }
+
     if (importType === 'db') {
       const buffer = await file.arrayBuffer();
       const sql = await initSQL();
+      if (!sql) { throw new Error('sql.js 未加载'); }
       const srcDb = new sql.Database(new Uint8Array(buffer));
-      const targetDb = await loadDb(currentDb);
+      const targetDb = dbInstances[currentDb];
 
       if (importMode === 'merge') {
         const tables = queryDb(srcDb, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
@@ -529,10 +600,8 @@ async function doImport() {
           if (srcData.columns.length === 0) continue;
           const colList = srcData.columns.map(c => `"${c}"`).join(',');
           const ph = srcData.columns.map(() => '?').join(',');
-          const insertSql = `INSERT OR REPLACE INTO "${tableName}" (${colList}) VALUES (${ph})`;
           for (const row of srcData.results) {
-            const vals = srcData.columns.map(c => row[c]);
-            targetDb.run(insertSql, vals);
+            targetDb.run(`INSERT OR REPLACE INTO "${tableName}" (${colList}) VALUES (${ph})`, srcData.columns.map(c => row[c]));
           }
         }
       } else {
@@ -553,10 +622,10 @@ async function doImport() {
       await saveDb(currentDb);
     } else if (importType === 'csv') {
       const text = await file.text();
-      const tableName = $('#csv-table')?.value || file.name.replace(/\.csv$/i, '');
+      const tableName = $('#csv-table')?.value?.trim() || file.name.replace(/\.csv$/i, '');
       const { columns, rows } = parseCSV(text);
-      if (columns.length === 0) { alert('CSV解析失败'); return; }
-      const db = await loadDb(currentDb);
+      if (columns.length === 0) { throw new Error('CSV解析失败'); }
+      const db = dbInstances[currentDb];
       if (importMode === 'replace') {
         try { db.run(`DROP TABLE IF EXISTS "${tableName}"`); } catch {}
       }
@@ -570,11 +639,12 @@ async function doImport() {
       await saveDb(currentDb);
       currentTable = tableName;
     }
+
     if (statusDiv) statusDiv.textContent = '导入成功!';
     loadTableData();
+    closeModals();
     render();
     await refreshSidebar();
-    setTimeout(() => { const o = $('.modal-overlay'); if (o) o.remove(); }, 800);
   } catch (e) {
     if (statusDiv) statusDiv.textContent = '导入失败: ' + e.message;
   }
@@ -636,7 +706,13 @@ document.addEventListener('keydown', (e) => {
 });
 
 async function init() {
-  await IDB.init();
+  try {
+    await IDB.init();
+  } catch (e) {
+    console.error('IDB init failed:', e);
+  }
   render();
+  await refreshSidebar();
 }
+
 init();
