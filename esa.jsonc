@@ -1,15 +1,5 @@
 {
-  // ESA Pages 配置
-  "name": "sqlite-online",
-  "build": {
-    "command": "npm run build",
-    "outputDirectory": "dist"
-  },
-  "routes": [
-    // SPA 路由：所有非静态文件请求返回 index.html
-    {
-      "path": "/*",
-      "rewrite": "/index.html"
-    }
-  ]
+  "assets": {
+    "directory": "dist"
+  }
 }
