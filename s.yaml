@@ -1,0 +1,48 @@
+edition: 1.0.0
+name: sqlite-online
+access: default
+
+vars:
+  region: cn-hongkong
+
+services:
+  sqlite-online:
+    component: devsapp/fc
+    props:
+      region: ${vars.region}
+      service:
+        name: sqlite-online
+        description: 在线SQLite数据库服务
+        internetAccess: true
+        nasConfig: auto
+        vpcConfig: auto
+        logConfig: auto
+      function:
+        name: api
+        description: SQLite API 函数
+        runtime: custom-runtime
+        codeUri: ./dist
+        memorySize: 512
+        timeout: 60
+        initializer: index.initializer
+        initializationTimeout: 30
+        environmentVariables:
+          KV_NAMESPACE: sqlite-db
+      triggers:
+        - name: httpTrigger
+          type: http
+          config:
+            authType: anonymous
+            methods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+
+  sqlite-pages:
+    component: devsapp/website
+    props:
+      region: ${vars.region}
+      codeUri: ./public
+      bucket: sqlite-online-pages

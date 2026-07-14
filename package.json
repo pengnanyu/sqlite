@@ -1,17 +1,16 @@
 {
-  "name": "bms-sqlite",
+  "name": "sqlite-online",
   "version": "1.0.0",
-  "description": "AIBMS ESA Edge Functions - Protocol Database API & Admin",
+  "private": true,
+  "description": "模拟SQLite在线数据库 - 阿里云函数+KV存储",
   "scripts": {
-    "dev": "npx wrangler dev",
-    "deploy": "npx wrangler deploy",
-    "build": "npx esbuild src/index.ts --bundle --outfile=dist/_worker.js --format=esm --platform=neutral --target=es2022 --define:process.env.NODE_ENV='\"production\"' --loader:.html=text && node -e \"require('fs').copyFileSync('dist/_worker.js','dist/index.js')\""
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "node build.js",
+    "deploy": "npx @alicloud/fc-cli deploy"
   },
-  "devDependencies": {
-    "@cloudflare/workers-types": "^4.20240620.0",
-    "esbuild": "^0.23.0",
-    "typescript": "^5.4.0",
-    "wrangler": "^3.60.0"
+  "dependencies": {
+    "sql.js": "^1.10.3"
   },
-  "dependencies": {}
+  "devDependencies": {}
 }

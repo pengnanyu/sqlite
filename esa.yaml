@@ -1,0 +1,14 @@
+version: 1.0
+name: sqlite-online
+description: 在线SQLite数据库 - 阿里云ESA部署
+
+# ESA Pages 配置
+# 构建设置（在阿里云控制台配置时参考）
+# - 构建命令: 无需构建
+# - 输出目录: /
+# - 根目录: /
+
+# Edge Function 路由配置（如需API）
+functions:
+  # 预留：如需服务端API可在此配置 Edge Function
+  # api/*: functions/api/index.js
