@@ -3,7 +3,12 @@ let tableData={columns:[],rows:[],total:0,page:1,limit:200};
 let selectedRows=new Set(),clipboardRows=[],editingCell=null;
 let showSettings=false;
 
-async function initSQL(){if(SQL)return SQL;try{SQL=await window.initSqlJs({locateFile:f=>`https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}`})}catch(e){console.error('sql.js init failed:',e)}return SQL}
+async function initSQL(){
+  if(SQL)return SQL;
+  try{SQL=await window.initSqlJs({locateFile:f=>`https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}`})}
+  catch(e){console.error('sql.js init failed:',e)}
+  return SQL;
+}
 
 async function api(path,options={}){
   const opts={headers:{},...options};
@@ -23,8 +28,22 @@ async function api(path,options={}){
   return await res.text();
 }
 
-function queryLocal(sql,params=[]){if(!localDb)return[];try{const s=localDb.prepare(sql);if(params.length>0)s.bind(params);const r=[];const c=s.getColumnNames();while(s.step()){const row={};const v=s.get();c.forEach((col,i)=>{row[col]=v[i]});r.push(row)}s.free();return r}catch{return[]}}
-function uint8ToBase64(bytes){let binary='';const cs=8192;for(let i=0;i<bytes.length;i+=cs)binary+=String.fromCharCode.apply(null,bytes.subarray(i,Math.min(i+cs,bytes.length)));return btoa(binary)}
+function queryLocal(sql,params=[]){
+  if(!localDb)return[];
+  try{
+    const s=localDb.prepare(sql);
+    if(params.length>0)s.bind(params);
+    const r=[];const c=s.getColumnNames();
+    while(s.step()){const row={};const v=s.get();c.forEach((col,i)=>{row[col]=v[i]});r.push(row)}
+    s.free();return r;
+  }catch{return[]}
+}
+
+function uint8ToBase64(bytes){
+  let binary='';const cs=8192;
+  for(let i=0;i<bytes.length;i+=cs)binary+=String.fromCharCode.apply(null,bytes.subarray(i,Math.min(i+cs,bytes.length)));
+  return btoa(binary);
+}
 
 async function syncToServer(){
   if(!localDb||!currentDb)throw new Error('没有活跃数据库');
@@ -40,225 +59,484 @@ async function syncToServer(){
 }
 
 function $(s){return document.querySelector(s)}
-function el(tag,attrs={},ch=[]){const e=document.createElement(tag);for(const[k,v]of Object.entries(attrs)){if(k==='className')e.className=v;else if(k==='textContent')e.textContent=v;else if(k==='innerHTML')e.innerHTML=v;else if(k.startsWith('on'))e.addEventListener(k.slice(2).toLowerCase(),v);else if(k==='style'&&typeof v==='object')Object.assign(e.style,v);else e.setAttribute(k,v)}for(const c of ch){if(typeof c==='string')e.appendChild(document.createTextNode(c));else if(c)e.appendChild(c)}return e}
-function showModal(title,content,actions){document.querySelectorAll('.modal-overlay').forEach(o=>o.remove());const ov=el('div',{className:'modal-overlay'});const m=el('div',{className:'modal'});m.appendChild(el('h3',{textContent:title}));if(content)m.appendChild(typeof content==='string'?el('div',{innerHTML:content}):content);if(actions){const bar=el('div',{className:'modal-actions'});for(const a of actions)bar.appendChild(a);m.appendChild(bar)}ov.appendChild(m);ov.addEventListener('click',e=>{if(e.target===ov)ov.remove()});document.body.appendChild(ov);return ov}
+function el(tag,attrs={},ch=[]){
+  const e=document.createElement(tag);
+  for(const[k,v]of Object.entries(attrs)){
+    if(k==='className')e.className=v;
+    else if(k==='textContent')e.textContent=v;
+    else if(k==='innerHTML')e.innerHTML=v;
+    else if(k.startsWith('on'))e.addEventListener(k.slice(2).toLowerCase(),v);
+    else if(k==='style'&&typeof v==='object')Object.assign(e.style,v);
+    else e.setAttribute(k,v);
+  }
+  for(const c of ch){if(typeof c==='string')e.appendChild(document.createTextNode(c));else if(c)e.appendChild(c)}
+  return e;
+}
+function showModal(title,content,actions){
+  document.querySelectorAll('.modal-overlay').forEach(o=>o.remove());
+  const ov=el('div',{className:'modal-overlay'});
+  const m=el('div',{className:'modal'});
+  m.appendChild(el('h3',{textContent:title}));
+  if(content)m.appendChild(typeof content==='string'?el('div',{innerHTML:content}):content);
+  if(actions){const bar=el('div',{className:'modal-actions'});for(const a of actions)bar.appendChild(a);m.appendChild(bar)}
+  ov.appendChild(m);
+  ov.addEventListener('click',e=>{if(e.target===ov)ov.remove()});
+  document.body.appendChild(ov);
+  return ov;
+}
 function closeModals(){document.querySelectorAll('.modal-overlay').forEach(o=>o.remove())}
 function toast(msg,dur=2500){const t=el('div',{className:'toast',textContent:msg});document.body.appendChild(t);setTimeout(()=>t.remove(),dur)}
 
 function render(){$('#app').innerHTML='';$('#app').appendChild(el('div',{className:'layout'},[renderSidebar(),renderMain()]))}
-function renderSidebar(){const s=el('div',{className:'sidebar'});s.appendChild(el('div',{className:'sidebar-header'},[el('h2',{textContent:'SQLite Online'}),el('button',{className:'btn btn-sm',textContent:'\u2699',onClick:()=>{showSettings=!showSettings;render()}}),el('button',{className:'btn btn-sm btn-primary',textContent:'+ 新建',onClick:showCreateDbDialog})]));s.appendChild(el('div',{className:'db-list',id:'db-list'}));return s}
 
-async function showCreateDbDialog(){const inp=el('input',{type:'text',placeholder:'数据库名称',className:'input-sm',style:{width:'100%'}});showModal('新建数据库',inp,[el('button',{className:'btn',textContent:'取消',onClick:closeModals}),el('button',{className:'btn btn-primary',textContent:'创建',onClick:async()=>{const n=inp.value?.trim();if(!n)return;try{await api('/databases',{method:'POST',body:{name:n}});currentDb=n;currentTable=null;selectedRows.clear();const sql=await initSQL();if(sql)localDb=new sql.Database();dbModified=false;closeModals();render();await refreshSidebar();toast('数据库已创建')}catch(e){alert('创建失败: '+e.message)}}})]);setTimeout(()=>inp.focus(),100)}
+function renderSidebar(){
+  const s=el('div',{className:'sidebar'});
+  s.appendChild(el('div',{className:'sidebar-header'},[
+    el('h2',{textContent:'SQLite Online'}),
+    el('button',{className:'btn btn-sm',textContent:'\u2699',onClick:()=>{showSettings=!showSettings;render()}}),
+    el('button',{className:'btn btn-sm btn-primary',textContent:'+ 新建',onClick:showCreateDbDialog})
+  ]));
+  s.appendChild(el('div',{className:'db-list',id:'db-list'}));
+  return s;
+}
 
-async function refreshSidebar(){const c=$('#db-list');if(!c)return;try{const d=await api('/databases');const dbs=d.databases||[];c.innerHTML='';if(!dbs.length){c.appendChild(el('div',{className:'sidebar-empty',textContent:'暂无数据库'}));return}for(const db of dbs){const item=el('div',{className:`db-item ${db.name===currentDb?'active':''}`});item.appendChild(el('span',{className:'db-name',textContent:db.name,onClick:()=>selectDb(db.name)}));item.appendChild(el('button',{className:'btn-icon btn-danger-sm',textContent:'\u00d7',onClick:e=>{e.stopPropagation();deleteDatabase(db.name)}}));if(db.name===currentDb){const tl=el('div',{className:'table-list'});const tables=db.tables||[];if(!tables.length)tl.appendChild(el('div',{className:'table-item',textContent:'(空)',style:{fontStyle:'italic',color:'var(--fg3)'}}));for(const t of tables)tl.appendChild(el('div',{className:`table-item ${t===currentTable?'active':''}`,textContent:t,onClick:()=>selectTable(t)}));item.appendChild(tl)}c.appendChild(item)}}catch(e){c.innerHTML='';c.appendChild(el('div',{className:'sidebar-empty',textContent:'加载失败: '+e.message}))}}
+async function showCreateDbDialog(){
+  const inp=el('input',{type:'text',placeholder:'数据库名称',className:'input-sm',style:{width:'100%'}});
+  showModal('新建数据库',inp,[
+    el('button',{className:'btn',textContent:'取消',onClick:closeModals}),
+    el('button',{className:'btn btn-primary',textContent:'创建',onClick:async()=>{
+      const n=inp.value?.trim();if(!n)return;
+      try{
+        await api('/databases',{method:'POST',body:{name:n}});
+        currentDb=n;currentTable=null;selectedRows.clear();
+        const sql=await initSQL();if(sql)localDb=new sql.Database();
+        dbModified=false;closeModals();render();await refreshSidebar();toast('数据库已创建');
+      }catch(e){alert('创建失败: '+e.message)}
+    }})
+  ]);
+  setTimeout(()=>inp.focus(),100);
+}
 
-async function selectDb(n){if(dbModified&&currentDb){try{await syncToServer()}catch{}}currentDb=n;currentTable=null;selectedRows.clear();const sql=await initSQL();if(sql)localDb=new sql.Database();try{const buf=await api(`/databases/${encodeURIComponent(n)}/export`);if(buf&&buf instanceof ArrayBuffer&&buf.byteLength>0&&sql)localDb=new sql.Database(new Uint8Array(buf))}catch{}dbModified=false;render();await refreshSidebar()}
-async function selectTable(t){currentTable=t;selectedRows.clear();loadTableData();render()}
-function loadTableData(page=1){if(!localDb||!currentTable)return;const limit=tableData.limit||200;const offset=(page-1)*limit;const cnt=queryLocal(`SELECT COUNT(*) as cnt FROM "${currentTable}"`);const total=cnt[0]?.cnt||0;const data=queryLocal(`SELECT * FROM "${currentTable}" LIMIT ? OFFSET ?`,[limit,offset]);const columns=data.length>0?Object.keys(data[0]):[];tableData={columns,rows:data,total,page,limit}}
-async function deleteDatabase(n){if(!confirm(`确定删除 "${n}"？`))return;try{await api(`/databases/${encodeURIComponent(n)}`,{method:'DELETE'});if(currentDb===n){currentDb=null;currentTable=null;localDb=null}render();await refreshSidebar()}catch(e){alert('删除失败: '+e.message)}}
-
-function renderMain(){const m=el('div',{className:'main'});if(showSettings){m.appendChild(renderSettingsPage());return m}if(!currentDb){m.appendChild(el('div',{className:'empty-state'},[el('h3',{textContent:'选择或创建数据库'}),el('p',{textContent:'从左侧选择，或点击新建/导入'}),el('div',{className:'empty-actions'},[el('button',{className:'btn btn-primary',textContent:'新建数据库',onClick:showCreateDbDialog}),el('button',{className:'btn',textContent:'导入文件',onClick:showImportDialog})])]));return m}m.appendChild(renderToolbar());if(currentTable){m.appendChild(renderTableView());m.appendChild(renderPagination())}else{m.appendChild(el('div',{className:'empty-state'},[el('h3',{textContent:'选择数据表'}),el('div',{className:'empty-actions'},[el('button',{className:'btn btn-primary',textContent:'新建表',onClick:showCreateTableDialog}),el('button',{className:'btn',textContent:'导入文件',onClick:showImportDialog})])]))}return m}
-
-function renderSettingsPage(){const c=el('div',{className:'settings-page'});c.appendChild(el('h3',{textContent:'设置 & KV 诊断',style:{marginBottom:'16px'}}));const btnRow=el('div',{className:'settings-btn-row'},[el('button',{className:'btn btn-primary',textContent:'测试KV连接',onClick:async()=>{try{const d=await api('/kv-test');c.querySelector('.kv-result').innerHTML=`<div class="kv-ok">KV状态: ${d.kvStatus}<br>读写删: ${d.writeReadDelete}<br>Keys数量: ${d.totalKeys}<br>Keys: ${d.keys.join(', ')||'(空)'}</div>`}catch(e){c.querySelector('.kv-result').innerHTML=`<div class="kv-err">错误: ${e.message}</div>`}}}),el('button',{className:'btn',textContent:'列出所有KV Keys',onClick:async()=>{try{const d=await api('/kv-keys');const rows=d.keys.map(k=>`<div>${k.key} (${k.size}B)</div>`).join('');c.querySelector('.kv-result').innerHTML=`<div>共 ${d.total} 个key:</div>${rows||'<div>(空)</div>'}`}catch(e){c.querySelector('.kv-result').innerHTML=`<div class="kv-err">错误: ${e.message}</div>`}}}),el('button',{className:'btn',textContent:'Ping',onClick:async()=>{try{const d=await api('/ping');c.querySelector('.kv-result').innerHTML=`<div class="kv-ok">Ping OK: ${d.time}</div>`}catch(e){c.querySelector('.kv-result').innerHTML=`<div class="kv-err">Ping失败: ${e.message}</div>`}}}),el('button',{className:'btn',textContent:'返回',onClick:()=>{showSettings=false;render()}})]);c.appendChild(btnRow);c.appendChild(el('div',{className:'kv-result',style:{marginTop:'16px',fontSize:'13px',color:'var(--fg2)'}}));return c}
-
-function renderToolbar(){const r=[el('button',{className:'btn btn-sm',textContent:'新建表',onClick:showCreateTableDialog}),el('button',{className:'btn btn-sm',textContent:'导入',onClick:showImportDialog}),el('button',{className:'btn btn-sm',textContent:'导出',onClick:exportDb}),el('button',{className:'btn btn-sm',textContent:'SQL',onClick:showSqlEditor})];if(currentTable)r.push(el('button',{className:'btn btn-sm btn-danger',textContent:'删表',onClick:dropTable}));if(selectedRows.size>0){r.push(el('button',{className:'btn btn-sm btn-danger',textContent:`删除(${selectedRows.size})`,onClick:deleteSelected}));r.push(el('button',{className:'btn btn-sm',textContent:'复制',onClick:copySelected}))}if(clipboardRows.length>0)r.push(el('button',{className:'btn btn-sm',textContent:`粘贴(${clipboardRows.length})`,onClick:pasteRows}));if(dbModified)r.push(el('button',{className:'btn btn-sm btn-primary',textContent:'保存到云端',onClick:async()=>{try{await syncToServer();toast('已保存到KV');render();await refreshSidebar()}catch(e){alert('保存失败: '+e.message)}}}));return el('div',{className:'toolbar'},[el('div',{className:'toolbar-left'},[el('span',{className:'toolbar-db',textContent:currentDb}),currentTable?el('span',{className:'toolbar-table',textContent:` / ${currentTable}`}):null,dbModified?el('span',{textContent:'(未保存)',style:{color:'var(--warning)',fontSize:'11px',marginLeft:'4px'}}):null]),el('div',{className:'toolbar-right'},r)])}
-
-function showCreateTableDialog(){const ni=el('input',{type:'text',placeholder:'表名称',className:'input-sm',style:{width:'100%',marginBottom:'8px'}});const ci=el('input',{type:'text',placeholder:'列定义 (如: id INTEGER PRIMARY KEY, name TEXT)',className:'input-sm',style:{width:'100%'}});showModal('新建表',el('div',{},[ni,ci]),[el('button',{className:'btn',textContent:'取消',onClick:closeModals}),el('button',{className:'btn btn-primary',textContent:'创建',onClick:async()=>{const n=ni.value?.trim();if(!n||!localDb)return;const c=ci.value?.trim()||'id INTEGER PRIMARY KEY AUTOINCREMENT';try{localDb.run(`CREATE TABLE IF NOT EXISTS "${n}" (${c})`);dbModified=true;currentTable=n;loadTableData();closeModals();render();await refreshSidebar()}catch(e){alert('建表失败: '+e.message)}}})]);setTimeout(()=>ni.focus(),100)}
-
-async function dropTable(){if(!confirm(`确定删除表 "${currentTable}"？`)||!localDb)return;localDb.run(`DROP TABLE IF EXISTS "${currentTable}"`);dbModified=true;currentTable=null;render();await refreshSidebar()}
-async function exportDb(){if(!localDb)return;const d=localDb.export();const b=new Blob([d],{type:'application/octet-stream'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`${currentDb}.db`;a.click();URL.revokeObjectURL(u)}
-
-function renderTableView(){const c=el('div',{className:'table-container'});if(!tableData.columns.length){c.appendChild(el('div',{className:'empty-state',textContent:'空表 - 双击单元格可编辑'}));return c}const t=el('table',{className:'data-table'});const thead=el('thead');const hr=el('tr');hr.appendChild(el('th',{className:'th-select'},[el('input',{type:'checkbox',onChange:e=>toggleSelectAll(e.target.checked)})]));for(const col of tableData.columns)hr.appendChild(el('th',{textContent:col}));thead.appendChild(hr);t.appendChild(thead);const tbody=el('tbody');for(let i=0;i<tableData.rows.length;i++){const row=tableData.rows[i];const tr=el('tr',{className:selectedRows.has(i)?'selected':''});tr.appendChild(el('td',{className:'td-select'},[el('input',{type:'checkbox',checked:selectedRows.has(i),onChange:()=>toggleSelectRow(i)})]));for(const col of tableData.columns){const v=row[col];const td=el('td',{textContent:v===null?'NULL':String(v),className:v===null?'null-val':''});td.addEventListener('dblclick',()=>startEditCell(i,col,td));tr.appendChild(td)}tbody.appendChild(tr)}t.appendChild(tbody);c.appendChild(t);return c}
-function toggleSelectAll(chk){if(chk){for(let i=0;i<tableData.rows.length;i++)selectedRows.add(i)}else selectedRows.clear();render()}
-function toggleSelectRow(i){if(selectedRows.has(i))selectedRows.delete(i);else selectedRows.add(i);render()}
-
-function startEditCell(ri,col,td){if(editingCell)return;const row=tableData.rows[ri];editingCell={ri,col};const inp=el('input',{type:'text',value:row[col]===null?'':String(row[col]),className:'cell-editor'});inp.addEventListener('blur',()=>finishEditCell(inp));inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();finishEditCell(inp)}if(e.key==='Escape'){editingCell=null;render()}});td.textContent='';td.appendChild(inp);inp.focus();inp.select()}
-async function finishEditCell(inp){if(!editingCell||!localDb)return;const{ri,col}=editingCell;editingCell=null;const nv=inp.value===''?null:inp.value;const row=tableData.rows[ri];if(row[col]===nv||(nv!==null&&String(row[col])===String(nv))){render();return}const wp=[],wv=[];for(const c of tableData.columns){if(c===col)continue;wp.push(`"${c}" = ?`);wv.push(row[c])}try{localDb.run(`UPDATE "${currentTable}" SET "${col}" = ? WHERE ${wp.join(' AND ')}`,[nv,...wv]);row[col]=nv;dbModified=true}catch(e){alert('更新失败: '+e.message)}render()}
-
-async function deleteSelected(){if(!selectedRows.size||!localDb)return;if(!confirm(`确定删除 ${selectedRows.size} 行？`))return;for(const i of selectedRows){const row=tableData.rows[i];const wp=[],wv=[];for(const c of tableData.columns){wp.push(`"${c}" = ?`);wv.push(row[c])}localDb.run(`DELETE FROM "${currentTable}" WHERE ${wp.join(' AND ')}`,wv)}selectedRows.clear();dbModified=true;loadTableData(tableData.page);render()}
-function copySelected(){if(!selectedRows.size)return;clipboardRows=[];for(const i of[...selectedRows].sort((a,b)=>a-b))clipboardRows.push({...tableData.rows[i]});const t=clipboardRows.map(r=>tableData.columns.map(c=>r[c]===null?'':String(r[c])).join('\t')).join('\n');navigator.clipboard.writeText(t).catch(()=>{});render()}
-async function pasteRows(){if(!clipboardRows.length||!localDb||!currentTable)return;for(const row of clipboardRows){const cs=Object.keys(row).map(c=>`"${c}"`).join(',');const vs=Object.values(row);localDb.run(`INSERT INTO "${currentTable}" (${cs}) VALUES (${vs.map(()=>'?').join(',')})`,vs)}dbModified=true;loadTableData(tableData.page);render()}
-
-function renderPagination(){if(!tableData.total)return el('div');const tp=Math.ceil(tableData.total/(tableData.limit||200));return el('div',{className:'pagination'},[el('span',{className:'page-info',textContent:`${tableData.total} 行 \u00b7 第 ${tableData.page}/${tp} 页`}),el('button',{className:'btn btn-sm',textContent:'上一页',disabled:tableData.page<=1,onClick:()=>{loadTableData(tableData.page-1);render()}}),el('button',{className:'btn btn-sm',textContent:'下一页',disabled:tableData.page>=tp,onClick:()=>{loadTableData(tableData.page+1);render()}})])}
-
-function showSqlEditor(){const ta=el('textarea',{className:'sql-editor',id:'sql-input',placeholder:'SELECT * FROM table_name',rows:8});const rd=el('div',{id:'sql-result',className:'sql-result'});showModal('执行 SQL',el('div',{},[ta,rd]),[el('button',{className:'btn',textContent:'关闭',onClick:closeModals}),el('button',{className:'btn btn-primary',textContent:'执行',onClick:executeSql})])}
-async function executeSql(){const sql=$('#sql-input')?.value?.trim();if(!sql||!localDb)return;const rd=$('#sql-result');try{const u=sql.toUpperCase().trim();if(u.startsWith('SELECT')||u.startsWith('PRAGMA')){const d=queryLocal(sql);if(!d.length){rd.textContent='0 行';return}const cols=Object.keys(d[0]);let h=`<p>${d.length} 行</p><table class="data-table"><thead><tr>`;for(const c of cols)h+=`<th>${c}</th>`;h+='</tr></thead><tbody>';for(const row of d){h+='<tr>';for(const c of cols)h+=`<td>${row[c]===null?'<span class="null-val">NULL</span>':row[c]}</td>`;h+='</tr>'}h+='</tbody></table>';rd.innerHTML=h;rd.className='sql-result'}else{localDb.run(sql);dbModified=true;rd.textContent='执行成功';await refreshSidebar()}}catch(e){rd.textContent='错误: '+e.message;rd.className='sql-result error'}}
-
-function showImportDialog(){const dr=el('div',{className:'import-row'},[el('label',{textContent:'数据库: '}),el('input',{type:'text',id:'import-db-name',placeholder:'数据库名称',className:'input-sm',value:currentDb||'',style:{flex:1}})]);const tr=el('div',{className:'import-options'},[el('label',{className:'import-label'},[el('input',{type:'radio',name:'import-type',value:'db',checked:true}),' .db']),el('label',{className:'import-label'},[el('input',{type:'radio',name:'import-type',value:'csv'}),' .csv'])]);const mr=el('div',{className:'import-options'},[el('label',{className:'import-label'},[el('input',{type:'radio',name:'import-mode',value:'replace',checked:true}),' 替换']),el('label',{className:'import-label'},[el('input',{type:'radio',name:'import-mode',value:'merge'}),' 增量合并'])]);const fr=el('input',{type:'file',id:'import-file',accept:'.db,.csv,.sqlite',className:'file-input'});const cr=el('div',{id:'csv-table-name',style:{display:'none'}},[el('label',{textContent:'CSV表名: '}),el('input',{type:'text',id:'csv-table',placeholder:'table_name',className:'input-sm'})]);const sd=el('div',{id:'import-status'});showModal('导入数据',el('div',{},[dr,tr,mr,fr,cr,sd]),[el('button',{className:'btn',textContent:'取消',onClick:closeModals}),el('button',{className:'btn btn-primary',textContent:'导入',onClick:doImport})]);document.querySelectorAll('input[name="import-type"]').forEach(r=>r.addEventListener('change',()=>{const o=$('#csv-table-name');if(o)o.style.display=r.value==='csv'&&r.checked?'block':'none'}))}
-
-async function doImport(){const f=$('#import-file')?.files?.[0];if(!f){alert('请选择文件');return}const dn=$('#import-db-name')?.value?.trim();if(!dn){alert('请输入数据库名称');return}const it=document.querySelector('input[name="import-type"]:checked')?.value||'db';const im=document.querySelector('input[name="import-mode"]:checked')?.value||'replace';const sd=$('#import-status');if(sd)sd.textContent='导入中...';
-
-try{const sql=await initSQL();if(!sql)throw new Error('sql.js 未加载');if(!currentDb||currentDb!==dn){if(dbModified&&currentDb)try{await syncToServer()}catch{};currentDb=dn}
-
-if(it==='db'){const buf=await f.arrayBuffer();if(buf.byteLength>20*1024*1024)throw new Error(`文件过大(${(buf.byteLength/1024/1024).toFixed(1)}MB)`);const src=new sql.Database(new Uint8Array(buf));if(im==='merge'&&localDb){const st=[];const s=src.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");while(s.step())st.push(s.get()[0]);s.free();for(const tn of st){const sc=[];const sd2=[];const s2=src.prepare(`SELECT * FROM "${tn}"`);sc.push(...s2.getColumnNames());while(s2.step()){const v=s2.get();const row={};sc.forEach((c,i)=>{row[c]=v[i]});sd2.push(row)}s2.free();for(const row of sd2){localDb.run(`INSERT OR REPLACE INTO "${tn}" (${sc.map(c=>`"${c}"`).join(',')}) VALUES (${sc.map(()=>'?').join(',')})`,sc.map(c=>row[c]))}}src.close()}else{if(localDb)localDb.close();localDb=src}
-
-}else if(it==='csv'){const txt=await f.text();const tn=$('#csv-table')?.value?.trim()||f.name.replace(/\.csv$/i,'');const{columns:pc,rows:pr}=parseCSV(txt);if(!pc.length)throw new Error('CSV解析失败');if(!localDb)localDb=new sql.Database();if(im==='replace')try{localDb.run(`DROP TABLE IF EXISTS "${tn}"`)}catch{}localDb.run(`CREATE TABLE IF NOT EXISTS "${tn}" (${pc.map(c=>`"${c}" TEXT`).join(', ')})`);const cl=pc.map(c=>`"${c}"`).join(',');const ph=pc.map(()=>'?').join(',');for(const row of pr)localDb.run(`INSERT INTO "${tn}" (${cl}) VALUES (${ph})`,row);currentTable=tn}
-
-dbModified=true;if(sd)sd.textContent='正在保存到KV...';await syncToServer();if(sd)sd.textContent='导入成功!';closeModals();render();await refreshSidebar();toast('导入完成')}catch(e){if(sd)sd.textContent='导入失败: '+e.message;console.error('Import error:',e)}}
-
-function parseCSV(text){const lines=text.split(/\r?\n/).filter(l=>l.trim());if(!lines.length)return{columns:[],rows:[]};function pl(line){const r=[];let c='',q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(q){if(ch==='"'&&line[i+1]==='"'){c+='"';i++}else if(ch==='"')q=false;else c+=ch}else{if(ch==='"')q=true;else if(ch===','){r.push(c.trim());c=''}else c+=ch}}r.push(c.trim());return r}return{columns:pl(lines[0]),rows:lines.slice(1).filter(l=>l.trim()).map(l=>pl(l))}}
-
-document.addEventListener('paste',async e=>{if(!currentDb||!currentTable||!localDb)return;const a=document.activeElement;if(a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA'))return;const t=e.clipboardData?.getData('text/plain');if(!t)return;const ls=t.split(/\r?\n/).filter(l=>l.trim());if(!ls.length)return;const cl=tableData.columns.map(c=>`"${c}"`).join(',');const ph=tableData.columns.map(()=>'?').join(',');for(const l of ls){const r=l.split('\t');localDb.run(`INSERT INTO "${currentTable}" (${cl}) VALUES (${ph})`,tableData.columns.map((c,i)=>r[i]!==undefined?r[i]:null))}dbModified=true;loadTableData(tableData.page);render()});
-document.addEventListener('keydown',e=>{if(e.key==='Delete'&&selectedRows.size>0&&!editingCell)deleteSelected();if(e.ctrlKey&&e.key==='c'&&selectedRows.size>0&&!editingCell)copySelected();if(e.ctrlKey&&e.key==='s'){e.preventDefault();syncToServer().then(()=>toast('已保存到KV')).catch(e=>alert('保存失败: '+e.message))}});
-
-async function init(){await initSQL();render();await refreshSidebar()}
-init();let SQL=null,localDb=null,currentDb=null,currentTable=null,dbModified=false;
-let tableData={columns:[],rows:[],total:0,page:1,limit:200};
-let selectedRows=new Set(),clipboardRows=[],editingCell=null;
-
-async function initSQL(){if(SQL)return SQL;try{SQL=await window.initSqlJs({locateFile:f=>`https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}`})}catch(e){console.error('sql.js init failed:',e)}return SQL}
-
-async function api(path,options={}){
-  const opts={headers:{'Content-Type':'application/json'},...options};
-  if(opts.body&&typeof opts.body==='object')opts.body=JSON.stringify(opts.body);
-  const res=await fetch(`/api${path}`,opts);
-  const ct=res.headers.get('content-type')||'';
-  if(ct.includes('application/json')){
-    const data=await res.json();
-    if(!res.ok)throw new Error(data.error||`HTTP ${res.status}`);
-    return data;
+async function refreshSidebar(){
+  const c=$('#db-list');if(!c)return;
+  try{
+    const d=await api('/databases');const dbs=d.databases||[];
+    c.innerHTML='';
+    if(!dbs.length){c.appendChild(el('div',{className:'sidebar-empty',textContent:'暂无数据库'}));return}
+    for(const db of dbs){
+      const item=el('div',{className:`db-item ${db.name===currentDb?'active':''}`});
+      item.appendChild(el('span',{className:'db-name',textContent:db.name,onClick:()=>selectDb(db.name)}));
+      item.appendChild(el('button',{className:'btn-icon btn-danger-sm',textContent:'\u00d7',onClick:e=>{e.stopPropagation();deleteDatabase(db.name)}}));
+      if(db.name===currentDb){
+        const tl=el('div',{className:'table-list'});
+        const tables=db.tables||[];
+        if(!tables.length)tl.appendChild(el('div',{className:'table-item',textContent:'(空)',style:{fontStyle:'italic',color:'var(--fg3)'}}));
+        for(const t of tables)tl.appendChild(el('div',{className:`table-item ${t===currentTable?'active':''}`,textContent:t,onClick:()=>selectTable(t)}));
+        item.appendChild(tl);
+      }
+      c.appendChild(item);
+    }
+  }catch(e){
+    c.innerHTML='';c.appendChild(el('div',{className:'sidebar-empty',textContent:'加载失败: '+e.message}));
   }
-  if(ct.includes('octet-stream'))return await res.arrayBuffer();
-  if(!res.ok)throw new Error(`HTTP ${res.status}`);
-  return await res.text();
 }
 
-function queryLocal(sql,params=[]){if(!localDb)return[];try{const s=localDb.prepare(sql);if(params.length>0)s.bind(params);const r=[];const c=s.getColumnNames();while(s.step()){const row={};const v=s.get();c.forEach((col,i)=>{row[col]=v[i]});r.push(row)}s.free();return r}catch{return[]}}
+async function selectDb(n){
+  if(dbModified&&currentDb){try{await syncToServer()}catch{}}
+  currentDb=n;currentTable=null;selectedRows.clear();
+  const sql=await initSQL();if(sql)localDb=new sql.Database();
+  try{
+    const buf=await api(`/databases/${encodeURIComponent(n)}/export`);
+    if(buf&&buf instanceof ArrayBuffer&&buf.byteLength>0&&sql)localDb=new sql.Database(new Uint8Array(buf));
+  }catch{}
+  dbModified=false;render();await refreshSidebar();
+}
 
-function uint8ToBase64(bytes){let binary='';const cs=8192;for(let i=0;i<bytes.length;i+=cs)binary+=String.fromCharCode.apply(null,bytes.subarray(i,Math.min(i+cs,bytes.length)));return btoa(binary)}
+async function selectTable(t){currentTable=t;selectedRows.clear();loadTableData();render()}
 
-async function syncToServer(){
-  if(!localDb||!currentDb)return;
+function loadTableData(page=1){
+  if(!localDb||!currentTable)return;
+  const limit=tableData.limit||200;const offset=(page-1)*limit;
+  const cnt=queryLocal(`SELECT COUNT(*) as cnt FROM "${currentTable}"`);
+  const total=cnt[0]?.cnt||0;
+  const data=queryLocal(`SELECT * FROM "${currentTable}" LIMIT ? OFFSET ?`,[limit,offset]);
+  const columns=data.length>0?Object.keys(data[0]):[];
+  tableData={columns,rows:data,total,page,limit};
+}
+
+async function deleteDatabase(n){
+  if(!confirm(`确定删除 "${n}"？`))return;
+  try{
+    await api(`/databases/${encodeURIComponent(n)}`,{method:'DELETE'});
+    if(currentDb===n){currentDb=null;currentTable=null;localDb=null}
+    render();await refreshSidebar();
+  }catch(e){alert('删除失败: '+e.message)}
+}
+
+function renderMain(){
+  const m=el('div',{className:'main'});
+  if(showSettings){m.appendChild(renderSettingsPage());return m}
+  if(!currentDb){
+    m.appendChild(el('div',{className:'empty-state'},[
+      el('h3',{textContent:'选择或创建数据库'}),
+      el('p',{textContent:'从左侧选择，或点击新建/导入'}),
+      el('div',{className:'empty-actions'},[
+        el('button',{className:'btn btn-primary',textContent:'新建数据库',onClick:showCreateDbDialog}),
+        el('button',{className:'btn',textContent:'导入文件',onClick:showImportDialog})
+      ])
+    ]));
+    return m;
+  }
+  m.appendChild(renderToolbar());
+  if(currentTable){m.appendChild(renderTableView());m.appendChild(renderPagination())}
+  else{
+    m.appendChild(el('div',{className:'empty-state'},[
+      el('h3',{textContent:'选择数据表'}),
+      el('div',{className:'empty-actions'},[
+        el('button',{className:'btn btn-primary',textContent:'新建表',onClick:showCreateTableDialog}),
+        el('button',{className:'btn',textContent:'导入文件',onClick:showImportDialog})
+      ])
+    ]));
+  }
+  return m;
+}
+
+function renderSettingsPage(){
+  const c=el('div',{className:'settings-page'});
+  c.appendChild(el('h3',{textContent:'设置 & KV 诊断',style:{marginBottom:'16px'}}));
+  const btnRow=el('div',{className:'settings-btn-row'},[
+    el('button',{className:'btn btn-primary',textContent:'测试KV连接',onClick:async()=>{
+      try{
+        const d=await api('/kv-test');
+        c.querySelector('.kv-result').innerHTML=`<div class="kv-ok">KV状态: ${d.kvStatus}<br>读写删: ${d.writeReadDelete}<br>Keys数量: ${d.totalKeys}<br>Keys: ${d.keys.join(', ')||'(空)'}</div>`;
+      }catch(e){c.querySelector('.kv-result').innerHTML=`<div class="kv-err">错误: ${e.message}</div>`}
+    }}),
+    el('button',{className:'btn',textContent:'列出所有KV Keys',onClick:async()=>{
+      try{
+        const d=await api('/kv-keys');
+        const rows=d.keys.map(k=>`<div>${k.key} (${k.size}B)</div>`).join('');
+        c.querySelector('.kv-result').innerHTML=`<div>共 ${d.total} 个key:</div>${rows||'<div>(空)</div>'}`;
+      }catch(e){c.querySelector('.kv-result').innerHTML=`<div class="kv-err">错误: ${e.message}</div>`}
+    }}),
+    el('button',{className:'btn',textContent:'Ping',onClick:async()=>{
+      try{
+        const d=await api('/ping');
+        c.querySelector('.kv_result').innerHTML=`<div class="kv-ok">Ping OK: ${d.time}</div>`;
+      }catch(e){c.querySelector('.kv-result').innerHTML=`<div class="kv-err">Ping失败: ${e.message}</div>`}
+    }}),
+    el('button',{className:'btn',textContent:'返回',onClick:()=>{showSettings=false;render()}})
+  ]);
+  c.appendChild(btnRow);
+  c.appendChild(el('div',{className:'kv-result',style:{marginTop:'16px',fontSize:'13px',color:'var(--fg2)'}}));
+  return c;
+}
+
+function renderToolbar(){
+  const r=[
+    el('button',{className:'btn btn-sm',textContent:'新建表',onClick:showCreateTableDialog}),
+    el('button',{className:'btn btn-sm',textContent:'导入',onClick:showImportDialog}),
+    el('button',{className:'btn btn-sm',textContent:'导出',onClick:exportDb}),
+    el('button',{className:'btn btn-sm',textContent:'SQL',onClick:showSqlEditor})
+  ];
+  if(currentTable)r.push(el('button',{className:'btn btn-sm btn-danger',textContent:'删表',onClick:dropTable}));
+  if(selectedRows.size>0){
+    r.push(el('button',{className:'btn btn-sm btn-danger',textContent:`删除(${selectedRows.size})`,onClick:deleteSelected}));
+    r.push(el('button',{className:'btn btn-sm',textContent:'复制',onClick:copySelected}));
+  }
+  if(clipboardRows.length>0)r.push(el('button',{className:'btn btn-sm',textContent:`粘贴(${clipboardRows.length})`,onClick:pasteRows}));
+  if(dbModified)r.push(el('button',{className:'btn btn-sm btn-primary',textContent:'保存到云端',onClick:async()=>{
+    try{await syncToServer();toast('已保存到KV');render();await refreshSidebar()}catch(e){alert('保存失败: '+e.message)}
+  }}));
+  return el('div',{className:'toolbar'},[
+    el('div',{className:'toolbar-left'},[
+      el('span',{className:'toolbar-db',textContent:currentDb}),
+      currentTable?el('span',{className:'toolbar-table',textContent:` / ${currentTable}`}):null,
+      dbModified?el('span',{textContent:'(未保存)',style:{color:'var(--warning)',fontSize:'11px',marginLeft:'4px'}}):null
+    ]),
+    el('div',{className:'toolbar-right'},r)
+  ]);
+}
+
+function showCreateTableDialog(){
+  const ni=el('input',{type:'text',placeholder:'表名称',className:'input-sm',style:{width:'100%',marginBottom:'8px'}});
+  const ci=el('input',{type:'text',placeholder:'列定义 (如: id INTEGER PRIMARY KEY, name TEXT)',className:'input-sm',style:{width:'100%'}});
+  showModal('新建表',el('div',{},[ni,ci]),[
+    el('button',{className:'btn',textContent:'取消',onClick:closeModals}),
+    el('button',{className:'btn btn-primary',textContent:'创建',onClick:async()=>{
+      const n=ni.value?.trim();if(!n||!localDb)return;
+      const c=ci.value?.trim()||'id INTEGER PRIMARY KEY AUTOINCREMENT';
+      try{
+        localDb.run(`CREATE TABLE IF NOT EXISTS "${n}" (${c})`);
+        dbModified=true;currentTable=n;loadTableData();closeModals();render();await refreshSidebar();
+      }catch(e){alert('建表失败: '+e.message)}
+    }})
+  ]);
+  setTimeout(()=>ni.focus(),100);
+}
+
+async function dropTable(){
+  if(!confirm(`确定删除表 "${currentTable}"？`)||!localDb)return;
+  localDb.run(`DROP TABLE IF EXISTS "${currentTable}"`);
+  dbModified=true;currentTable=null;render();await refreshSidebar();
+}
+
+async function exportDb(){
+  if(!localDb)return;
   const d=localDb.export();
-  const b=uint8ToBase64(new Uint8Array(d));
-  const t=queryLocal("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
-  await api(`/databases/${encodeURIComponent(currentDb)}/save`,{
-    method:'POST',
-    body:{data:b,tables:t.map(r=>r.name)}
-  });
-  dbModified=false;
+  const b=new Blob([d],{type:'application/octet-stream'});
+  const u=URL.createObjectURL(b);
+  const a=document.createElement('a');a.href=u;a.download=`${currentDb}.db`;a.click();
+  URL.revokeObjectURL(u);
 }
 
-function $(s){return document.querySelector(s)}
-function el(tag,attrs={},ch=[]){const e=document.createElement(tag);for(const[k,v]of Object.entries(attrs)){if(k==='className')e.className=v;else if(k==='textContent')e.textContent=v;else if(k==='innerHTML')e.innerHTML=v;else if(k.startsWith('on'))e.addEventListener(k.slice(2).toLowerCase(),v);else if(k==='style'&&typeof v==='object')Object.assign(e.style,v);else e.setAttribute(k,v)}for(const c of ch){if(typeof c==='string')e.appendChild(document.createTextNode(c));else if(c)e.appendChild(c)}return e}
-function showModal(title,content,actions){document.querySelectorAll('.modal-overlay').forEach(o=>o.remove());const ov=el('div',{className:'modal-overlay'});const m=el('div',{className:'modal'});m.appendChild(el('h3',{textContent:title}));if(content)m.appendChild(typeof content==='string'?el('div',{innerHTML:content}):content);if(actions){const bar=el('div',{className:'modal-actions'});for(const a of actions)bar.appendChild(a);m.appendChild(bar)}ov.appendChild(m);ov.addEventListener('click',e=>{if(e.target===ov)ov.remove()});document.body.appendChild(ov);return ov}
-function closeModals(){document.querySelectorAll('.modal-overlay').forEach(o=>o.remove())}
-function toast(msg,dur=2000){const t=el('div',{className:'toast',textContent:msg});document.body.appendChild(t);setTimeout(()=>t.remove(),dur)}
+function renderTableView(){
+  const c=el('div',{className:'table-container'});
+  if(!tableData.columns.length){c.appendChild(el('div',{className:'empty-state',textContent:'空表 - 双击单元格可编辑'}));return c}
+  const t=el('table',{className:'data-table'});
+  const thead=el('thead');const hr=el('tr');
+  hr.appendChild(el('th',{className:'th-select'},[el('input',{type:'checkbox',onChange:e=>toggleSelectAll(e.target.checked)})]));
+  for(const col of tableData.columns)hr.appendChild(el('th',{textContent:col}));
+  thead.appendChild(hr);t.appendChild(thead);
+  const tbody=el('tbody');
+  for(let i=0;i<tableData.rows.length;i++){
+    const row=tableData.rows[i];
+    const tr=el('tr',{className:selectedRows.has(i)?'selected':''});
+    tr.appendChild(el('td',{className:'td-select'},[el('input',{type:'checkbox',checked:selectedRows.has(i),onChange:()=>toggleSelectRow(i)})]));
+    for(const col of tableData.columns){
+      const v=row[col];
+      const td=el('td',{textContent:v===null?'NULL':String(v),className:v===null?'null-val':''});
+      td.addEventListener('dblclick',()=>startEditCell(i,col,td));
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  t.appendChild(tbody);c.appendChild(t);return c;
+}
 
-function render(){$('#app').innerHTML='';$('#app').appendChild(el('div',{className:'layout'},[renderSidebar(),renderMain()]))}
-function renderSidebar(){const s=el('div',{className:'sidebar'});s.appendChild(el('div',{className:'sidebar-header'},[el('h2',{textContent:'SQLite Online'}),el('button',{className:'btn btn-sm btn-primary',textContent:'+ 新建',onClick:showCreateDbDialog})]));s.appendChild(el('div',{className:'db-list',id:'db-list'}));return s}
-
-async function showCreateDbDialog(){const inp=el('input',{type:'text',placeholder:'数据库名称',className:'input-sm',style:{width:'100%'}});showModal('新建数据库',inp,[el('button',{className:'btn',textContent:'取消',onClick:closeModals}),el('button',{className:'btn btn-primary',textContent:'创建',onClick:async()=>{const n=inp.value?.trim();if(!n)return;try{await api('/databases',{method:'POST',body:{name:n}});currentDb=n;currentTable=null;selectedRows.clear();const sql=await initSQL();if(sql)localDb=new sql.Database();dbModified=false;closeModals();render();await refreshSidebar();toast('数据库已创建')}catch(e){alert('创建失败: '+e.message)}}})]);setTimeout(()=>inp.focus(),100)}
-
-async function refreshSidebar(){const c=$('#db-list');if(!c)return;try{const d=await api('/databases');const dbs=d.databases||[];c.innerHTML='';if(!dbs.length){c.appendChild(el('div',{className:'sidebar-empty',textContent:'暂无数据库'}));return}for(const db of dbs){const item=el('div',{className:`db-item ${db.name===currentDb?'active':''}`});item.appendChild(el('span',{className:'db-name',textContent:db.name,onClick:()=>selectDb(db.name)}));item.appendChild(el('button',{className:'btn-icon btn-danger-sm',textContent:'\u00d7',onClick:e=>{e.stopPropagation();deleteDatabase(db.name)}}));if(db.name===currentDb){const tl=el('div',{className:'table-list'});const tables=db.tables||[];if(!tables.length)tl.appendChild(el('div',{className:'table-item',textContent:'(空)',style:{fontStyle:'italic',color:'var(--fg3)'}}));for(const t of tables)tl.appendChild(el('div',{className:`table-item ${t===currentTable?'active':''}`,textContent:t,onClick:()=>selectTable(t)}));item.appendChild(tl)}c.appendChild(item)}}catch(e){c.appendChild(el('div',{className:'sidebar-empty',textContent:'加载失败: '+e.message}))}}
-
-async function selectDb(n){if(dbModified&&currentDb){try{await syncToServer()}catch{}}currentDb=n;currentTable=null;selectedRows.clear();const sql=await initSQL();if(sql)localDb=new sql.Database();try{const buf=await api(`/databases/${encodeURIComponent(n)}/export`);if(buf&&buf instanceof ArrayBuffer&&buf.byteLength>0&&sql)localDb=new sql.Database(new Uint8Array(buf))}catch{}dbModified=false;render();await refreshSidebar()}
-async function selectTable(t){currentTable=t;selectedRows.clear();loadTableData();render()}
-function loadTableData(page=1){if(!localDb||!currentTable)return;const limit=tableData.limit||200;const offset=(page-1)*limit;const cnt=queryLocal(`SELECT COUNT(*) as cnt FROM "${currentTable}"`);const total=cnt[0]?.cnt||0;const data=queryLocal(`SELECT * FROM "${currentTable}" LIMIT ? OFFSET ?`,[limit,offset]);const columns=data.length>0?Object.keys(data[0]):[];tableData={columns,rows:data,total,page,limit}}
-async function deleteDatabase(n){if(!confirm(`确定删除 "${n}"？`))return;try{await api(`/databases/${encodeURIComponent(n)}`,{method:'DELETE'});if(currentDb===n){currentDb=null;currentTable=null;localDb=null}render();await refreshSidebar()}catch(e){alert('删除失败: '+e.message)}}
-
-function renderMain(){const m=el('div',{className:'main'});if(!currentDb){m.appendChild(el('div',{className:'empty-state'},[el('h3',{textContent:'选择或创建数据库'}),el('p',{textContent:'从左侧选择，或点击新建/导入'}),el('div',{className:'empty-actions'},[el('button',{className:'btn btn-primary',textContent:'新建数据库',onClick:showCreateDbDialog}),el('button',{className:'btn',textContent:'导入文件',onClick:showImportDialog})])]));return m}m.appendChild(renderToolbar());if(currentTable){m.appendChild(renderTableView());m.appendChild(renderPagination())}else{m.appendChild(el('div',{className:'empty-state'},[el('h3',{textContent:'选择数据表'}),el('div',{className:'empty-actions'},[el('button',{className:'btn btn-primary',textContent:'新建表',onClick:showCreateTableDialog}),el('button',{className:'btn',textContent:'导入文件',onClick:showImportDialog})])]))}return m}
-
-function renderToolbar(){const r=[el('button',{className:'btn btn-sm',textContent:'新建表',onClick:showCreateTableDialog}),el('button',{className:'btn btn-sm',textContent:'导入',onClick:showImportDialog}),el('button',{className:'btn btn-sm',textContent:'导出',onClick:exportDb}),el('button',{className:'btn btn-sm',textContent:'SQL',onClick:showSqlEditor})];if(currentTable)r.push(el('button',{className:'btn btn-sm btn-danger',textContent:'删表',onClick:dropTable}));if(selectedRows.size>0){r.push(el('button',{className:'btn btn-sm btn-danger',textContent:`删除(${selectedRows.size})`,onClick:deleteSelected}));r.push(el('button',{className:'btn btn-sm',textContent:'复制',onClick:copySelected}))}if(clipboardRows.length>0)r.push(el('button',{className:'btn btn-sm',textContent:`粘贴(${clipboardRows.length})`,onClick:pasteRows}));if(dbModified)r.push(el('button',{className:'btn btn-sm btn-primary',textContent:'保存到云端',onClick:async()=>{try{await syncToServer();toast('已保存');render();await refreshSidebar()}catch(e){alert('保存失败: '+e.message)}}}));return el('div',{className:'toolbar'},[el('div',{className:'toolbar-left'},[el('span',{className:'toolbar-db',textContent:currentDb}),currentTable?el('span',{className:'toolbar-table',textContent:` / ${currentTable}`}):null]),el('div',{className:'toolbar-right'},r)])}
-
-function showCreateTableDialog(){const ni=el('input',{type:'text',placeholder:'表名称',className:'input-sm',style:{width:'100%',marginBottom:'8px'}});const ci=el('input',{type:'text',placeholder:'列定义 (如: id INTEGER PRIMARY KEY, name TEXT)',className:'input-sm',style:{width:'100%'}});showModal('新建表',el('div',{},[ni,ci]),[el('button',{className:'btn',textContent:'取消',onClick:closeModals}),el('button',{className:'btn btn-primary',textContent:'创建',onClick:async()=>{const n=ni.value?.trim();if(!n||!localDb)return;const c=ci.value?.trim()||'id INTEGER PRIMARY KEY AUTOINCREMENT';try{localDb.run(`CREATE TABLE IF NOT EXISTS "${n}" (${c})`);dbModified=true;currentTable=n;loadTableData();closeModals();render();await refreshSidebar()}catch(e){alert('建表失败: '+e.message)}}})]);setTimeout(()=>ni.focus(),100)}
-
-async function dropTable(){if(!confirm(`确定删除表 "${currentTable}"？`)||!localDb)return;localDb.run(`DROP TABLE IF EXISTS "${currentTable}"`);dbModified=true;currentTable=null;render();await refreshSidebar()}
-async function exportDb(){if(!localDb)return;const d=localDb.export();const b=new Blob([d],{type:'application/octet-stream'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`${currentDb}.db`;a.click();URL.revokeObjectURL(u)}
-
-function renderTableView(){const c=el('div',{className:'table-container'});if(!tableData.columns.length){c.appendChild(el('div',{className:'empty-state',textContent:'空表 - 双击单元格可编辑'}));return c}const t=el('table',{className:'data-table'});const thead=el('thead');const hr=el('tr');hr.appendChild(el('th',{className:'th-select'},[el('input',{type:'checkbox',onChange:e=>toggleSelectAll(e.target.checked)})]));for(const col of tableData.columns)hr.appendChild(el('th',{textContent:col}));thead.appendChild(hr);t.appendChild(thead);const tbody=el('tbody');for(let i=0;i<tableData.rows.length;i++){const row=tableData.rows[i];const tr=el('tr',{className:selectedRows.has(i)?'selected':''});tr.appendChild(el('td',{className:'td-select'},[el('input',{type:'checkbox',checked:selectedRows.has(i),onChange:()=>toggleSelectRow(i)})]));for(const col of tableData.columns){const v=row[col];const td=el('td',{textContent:v===null?'NULL':String(v),className:v===null?'null-val':''});td.addEventListener('dblclick',()=>startEditCell(i,col,td));tr.appendChild(td)}tbody.appendChild(tr)}t.appendChild(tbody);c.appendChild(t);return c}
-function toggleSelectAll(chk){if(chk){for(let i=0;i<tableData.rows.length;i++)selectedRows.add(i)}else selectedRows.clear();render()}
+function toggleSelectAll(chk){
+  if(chk){for(let i=0;i<tableData.rows.length;i++)selectedRows.add(i)}else selectedRows.clear();
+  render();
+}
 function toggleSelectRow(i){if(selectedRows.has(i))selectedRows.delete(i);else selectedRows.add(i);render()}
 
-function startEditCell(ri,col,td){if(editingCell)return;const row=tableData.rows[ri];editingCell={ri,col};const inp=el('input',{type:'text',value:row[col]===null?'':String(row[col]),className:'cell-editor'});inp.addEventListener('blur',()=>finishEditCell(inp));inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();finishEditCell(inp)}if(e.key==='Escape'){editingCell=null;render()}});td.textContent='';td.appendChild(inp);inp.focus();inp.select()}
-async function finishEditCell(inp){if(!editingCell||!localDb)return;const{ri,col}=editingCell;editingCell=null;const nv=inp.value===''?null:inp.value;const row=tableData.rows[ri];if(row[col]===nv||(nv!==null&&String(row[col])===String(nv))){render();return}const wp=[],wv=[];for(const c of tableData.columns){if(c===col)continue;wp.push(`"${c}" = ?`);wv.push(row[c])}try{localDb.run(`UPDATE "${currentTable}" SET "${col}" = ? WHERE ${wp.join(' AND ')}`,[nv,...wv]);row[col]=nv;dbModified=true}catch(e){alert('更新失败: '+e.message)}render()}
+function startEditCell(ri,col,td){
+  if(editingCell)return;
+  const row=tableData.rows[ri];editingCell={ri,col};
+  const inp=el('input',{type:'text',value:row[col]===null?'':String(row[col]),className:'cell-editor'});
+  inp.addEventListener('blur',()=>finishEditCell(inp));
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();finishEditCell(inp)}
+    if(e.key==='Escape'){editingCell=null;render()}
+  });
+  td.textContent='';td.appendChild(inp);inp.focus();inp.select();
+}
 
-async function deleteSelected(){if(!selectedRows.size||!localDb)return;if(!confirm(`确定删除 ${selectedRows.size} 行？`))return;for(const i of selectedRows){const row=tableData.rows[i];const wp=[],wv=[];for(const c of tableData.columns){wp.push(`"${c}" = ?`);wv.push(row[c])}localDb.run(`DELETE FROM "${currentTable}" WHERE ${wp.join(' AND ')}`,wv)}selectedRows.clear();dbModified=true;loadTableData(tableData.page);render()}
-function copySelected(){if(!selectedRows.size)return;clipboardRows=[];for(const i of[...selectedRows].sort((a,b)=>a-b))clipboardRows.push({...tableData.rows[i]});const t=clipboardRows.map(r=>tableData.columns.map(c=>r[c]===null?'':String(r[c])).join('\t')).join('\n');navigator.clipboard.writeText(t).catch(()=>{});render()}
-async function pasteRows(){if(!clipboardRows.length||!localDb||!currentTable)return;for(const row of clipboardRows){const cs=Object.keys(row).map(c=>`"${c}"`).join(',');const vs=Object.values(row);localDb.run(`INSERT INTO "${currentTable}" (${cs}) VALUES (${vs.map(()=>'?').join(',')})`,vs)}dbModified=true;loadTableData(tableData.page);render()}
+async function finishEditCell(inp){
+  if(!editingCell||!localDb)return;
+  const{ri,col}=editingCell;editingCell=null;
+  const nv=inp.value===''?null:inp.value;
+  const row=tableData.rows[ri];
+  if(row[col]===nv||(nv!==null&&String(row[col])===String(nv))){render();return}
+  const wp=[],wv=[];
+  for(const c of tableData.columns){if(c===col)continue;wp.push(`"${c}" = ?`);wv.push(row[c])}
+  try{
+    localDb.run(`UPDATE "${currentTable}" SET "${col}" = ? WHERE ${wp.join(' AND ')}`,[nv,...wv]);
+    row[col]=nv;dbModified=true;
+  }catch(e){alert('更新失败: '+e.message)}
+  render();
+}
 
-function renderPagination(){if(!tableData.total)return el('div');const tp=Math.ceil(tableData.total/(tableData.limit||200));return el('div',{className:'pagination'},[el('span',{className:'page-info',textContent:`${tableData.total} 行 \u00b7 第 ${tableData.page}/${tp} 页`}),el('button',{className:'btn btn-sm',textContent:'上一页',disabled:tableData.page<=1,onClick:()=>{loadTableData(tableData.page-1);render()}}),el('button',{className:'btn btn-sm',textContent:'下一页',disabled:tableData.page>=tp,onClick:()=>{loadTableData(tableData.page+1);render()}})])}
+async function deleteSelected(){
+  if(!selectedRows.size||!localDb)return;
+  if(!confirm(`确定删除 ${selectedRows.size} 行？`))return;
+  for(const i of selectedRows){
+    const row=tableData.rows[i];const wp=[],wv=[];
+    for(const c of tableData.columns){wp.push(`"${c}" = ?`);wv.push(row[c])}
+    localDb.run(`DELETE FROM "${currentTable}" WHERE ${wp.join(' AND ')}`,wv);
+  }
+  selectedRows.clear();dbModified=true;loadTableData(tableData.page);render();
+}
 
-function showSqlEditor(){const ta=el('textarea',{className:'sql-editor',id:'sql-input',placeholder:'SELECT * FROM table_name',rows:8});const rd=el('div',{id:'sql-result',className:'sql-result'});showModal('执行 SQL',el('div',{},[ta,rd]),[el('button',{className:'btn',textContent:'关闭',onClick:closeModals}),el('button',{className:'btn btn-primary',textContent:'执行',onClick:executeSql})])}
-async function executeSql(){const sql=$('#sql-input')?.value?.trim();if(!sql||!localDb)return;const rd=$('#sql-result');try{const u=sql.toUpperCase().trim();if(u.startsWith('SELECT')||u.startsWith('PRAGMA')){const d=queryLocal(sql);if(!d.length){rd.textContent='0 行';return}const cols=Object.keys(d[0]);let h=`<p>${d.length} 行</p><table class="data-table"><thead><tr>`;for(const c of cols)h+=`<th>${c}</th>`;h+='</tr></thead><tbody>';for(const row of d){h+='<tr>';for(const c of cols)h+=`<td>${row[c]===null?'<span class="null-val">NULL</span>':row[c]}</td>`;h+='</tr>'}h+='</tbody></table>';rd.innerHTML=h;rd.className='sql-result'}else{localDb.run(sql);dbModified=true;rd.textContent='执行成功';await refreshSidebar()}}catch(e){rd.textContent='错误: '+e.message;rd.className='sql-result error'}}
+function copySelected(){
+  if(!selectedRows.size)return;
+  clipboardRows=[];
+  for(const i of[...selectedRows].sort((a,b)=>a-b))clipboardRows.push({...tableData.rows[i]});
+  const t=clipboardRows.map(r=>tableData.columns.map(c=>r[c]===null?'':String(r[c])).join('\t')).join('\n');
+  navigator.clipboard.writeText(t).catch(()=>{});render();
+}
 
-function showImportDialog(){const dr=el('div',{className:'import-row'},[el('label',{textContent:'数据库: '}),el('input',{type:'text',id:'import-db-name',placeholder:'数据库名称',className:'input-sm',value:currentDb||'',style:{flex:1}})]);const tr=el('div',{className:'import-options'},[el('label',{className:'import-label'},[el('input',{type:'radio',name:'import-type',value:'db',checked:true}),' .db']),el('label',{className:'import-label'},[el('input',{type:'radio',name:'import-type',value:'csv'}),' .csv'])]);const mr=el('div',{className:'import-options'},[el('label',{className:'import-label'},[el('input',{type:'radio',name:'import-mode',value:'replace',checked:true}),' 替换']),el('label',{className:'import-label'},[el('input',{type:'radio',name:'import-mode',value:'merge'}),' 增量合并'])]);const fr=el('input',{type:'file',id:'import-file',accept:'.db,.csv,.sqlite',className:'file-input'});const cr=el('div',{id:'csv-table-name',style:{display:'none'}},[el('label',{textContent:'CSV表名: '}),el('input',{type:'text',id:'csv-table',placeholder:'table_name',className:'input-sm'})]);const sd=el('div',{id:'import-status'});showModal('导入数据',el('div',{},[dr,tr,mr,fr,cr,sd]),[el('button',{className:'btn',textContent:'取消',onClick:closeModals}),el('button',{className:'btn btn-primary',textContent:'导入',onClick:doImport})]);document.querySelectorAll('input[name="import-type"]').forEach(r=>r.addEventListener('change',()=>{const o=$('#csv-table-name');if(o)o.style.display=r.value==='csv'&&r.checked?'block':'none'}))}
+async function pasteRows(){
+  if(!clipboardRows.length||!localDb||!currentTable)return;
+  for(const row of clipboardRows){
+    const cs=Object.keys(row).map(c=>`"${c}"`).join(',');const vs=Object.values(row);
+    localDb.run(`INSERT INTO "${currentTable}" (${cs}) VALUES (${vs.map(()=>'?').join(',')})`,vs);
+  }
+  dbModified=true;loadTableData(tableData.page);render();
+}
 
-async function doImport(){const f=$('#import-file')?.files?.[0];if(!f){alert('请选择文件');return}const dn=$('#import-db-name')?.value?.trim();if(!dn){alert('请输入数据库名称');return}const it=document.querySelector('input[name="import-type"]:checked')?.value||'db';const im=document.querySelector('input[name="import-mode"]:checked')?.value||'replace';const sd=$('#import-status');if(sd)sd.textContent='导入中...';
+function renderPagination(){
+  if(!tableData.total)return el('div');
+  const tp=Math.ceil(tableData.total/(tableData.limit||200));
+  return el('div',{className:'pagination'},[
+    el('span',{className:'page-info',textContent:`${tableData.total} 行 \u00b7 第 ${tableData.page}/${tp} 页`}),
+    el('button',{className:'btn btn-sm',textContent:'上一页',disabled:tableData.page<=1,onClick:()=>{loadTableData(tableData.page-1);render()}}),
+    el('button',{className:'btn btn-sm',textContent:'下一页',disabled:tableData.page>=tp,onClick:()=>{loadTableData(tableData.page+1);render()}})
+  ]);
+}
 
-try{const sql=await initSQL();if(!sql)throw new Error('sql.js 未加载');if(!currentDb||currentDb!==dn){if(dbModified&&currentDb)try{await syncToServer()}catch{};currentDb=dn}
+function showSqlEditor(){
+  const ta=el('textarea',{className:'sql-editor',id:'sql-input',placeholder:'SELECT * FROM table_name',rows:8});
+  const rd=el('div',{id:'sql-result',className:'sql-result'});
+  showModal('执行 SQL',el('div',{},[ta,rd]),[
+    el('button',{className:'btn',textContent:'关闭',onClick:closeModals}),
+    el('button',{className:'btn btn-primary',textContent:'执行',onClick:executeSql})
+  ]);
+}
 
-if(it==='db'){const buf=await f.arrayBuffer();const src=new sql.Database(new Uint8Array(buf));if(im==='merge'&&localDb){const st=[];const s=src.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");while(s.step())st.push(s.get()[0]);s.free();for(const tn of st){const sc=[];const sd2=[];const s2=src.prepare(`SELECT * FROM "${tn}"`);sc.push(...s2.getColumnNames());while(s2.step()){const v=s2.get();const row={};sc.forEach((c,i)=>{row[c]=v[i]});sd2.push(row)}s2.free();for(const row of sd2){localDb.run(`INSERT OR REPLACE INTO "${tn}" (${sc.map(c=>`"${c}"`).join(',')}) VALUES (${sc.map(()=>'?').join(',')})`,sc.map(c=>row[c]))}}src.close()}else{if(localDb)localDb.close();localDb=src}
+async function executeSql(){
+  const sql=$('#sql-input')?.value?.trim();if(!sql||!localDb)return;
+  const rd=$('#sql-result');
+  try{
+    const u=sql.toUpperCase().trim();
+    if(u.startsWith('SELECT')||u.startsWith('PRAGMA')){
+      const d=queryLocal(sql);
+      if(!d.length){rd.textContent='0 行';return}
+      const cols=Object.keys(d[0]);
+      let h=`<p>${d.length} 行</p><table class="data-table"><thead><tr>`;
+      for(const c of cols)h+=`<th>${c}</th>`;
+      h+='</tr></thead><tbody>';
+      for(const row of d){h+='<tr>';for(const c of cols)h+=`<td>${row[c]===null?'<span class="null-val">NULL</span>':row[c]}</td>`;h+='</tr>'}
+      h+='</tbody></table>';rd.innerHTML=h;rd.className='sql-result';
+    }else{
+      localDb.run(sql);dbModified=true;rd.textContent='执行成功';await refreshSidebar();
+    }
+  }catch(e){rd.textContent='错误: '+e.message;rd.className='sql-result error'}
+}
 
-}else if(it==='csv'){const txt=await f.text();const tn=$('#csv-table')?.value?.trim()||f.name.replace(/\.csv$/i,'');const{columns:pc,rows:pr}=parseCSV(txt);if(!pc.length)throw new Error('CSV解析失败');if(!localDb)localDb=new sql.Database();if(im==='replace')try{localDb.run(`DROP TABLE IF EXISTS "${tn}"`)}catch{}localDb.run(`CREATE TABLE IF NOT EXISTS "${tn}" (${pc.map(c=>`"${c}" TEXT`).join(', ')})`);const cl=pc.map(c=>`"${c}"`).join(',');const ph=pc.map(()=>'?').join(',');for(const row of pr)localDb.run(`INSERT INTO "${tn}" (${cl}) VALUES (${ph})`,row);currentTable=tn}
+function showImportDialog(){
+  const dr=el('div',{className:'import-row'},[
+    el('label',{textContent:'数据库: '}),
+    el('input',{type:'text',id:'import-db-name',placeholder:'数据库名称',className:'input-sm',value:currentDb||'',style:{flex:1}})
+  ]);
+  const tr=el('div',{className:'import-options'},[
+    el('label',{className:'import-label'},[el('input',{type:'radio',name:'import-type',value:'db',checked:true}),' .db']),
+    el('label',{className:'import-label'},[el('input',{type:'radio',name:'import-type',value:'csv'}),' .csv'])
+  ]);
+  const mr=el('div',{className:'import-options'},[
+    el('label',{className:'import-label'},[el('input',{type:'radio',name:'import-mode',value:'replace',checked:true}),' 替换']),
+    el('label',{className:'import-label'},[el('input',{type:'radio',name:'import-mode',value:'merge'}),' 增量合并'])
+  ]);
+  const fr=el('input',{type:'file',id:'import-file',accept:'.db,.csv,.sqlite',className:'file-input'});
+  const cr=el('div',{id:'csv-table-name',style:{display:'none'}},[
+    el('label',{textContent:'CSV表名: '}),
+    el('input',{type:'text',id:'csv-table',placeholder:'table_name',className:'input-sm'})
+  ]);
+  const sd=el('div',{id:'import-status'});
+  showModal('导入数据',el('div',{},[dr,tr,mr,fr,cr,sd]),[
+    el('button',{className:'btn',textContent:'取消',onClick:closeModals}),
+    el('button',{className:'btn btn-primary',textContent:'导入',onClick:doImport})
+  ]);
+  document.querySelectorAll('input[name="import-type"]').forEach(r=>r.addEventListener('change',()=>{
+    const o=$('#csv-table-name');if(o)o.style.display=r.value==='csv'&&r.checked?'block':'none';
+  }));
+}
 
-dbModified=true;await syncToServer();if(sd)sd.textContent='导入成功!';closeModals();render();await refreshSidebar();toast('导入完成')}catch(e){if(sd)sd.textContent='导入失败: '+e.message;console.error('Import error:',e)}}
+async function doImport(){
+  const f=$('#import-file')?.files?.[0];
+  if(!f){alert('请选择文件');return}
+  const dn=$('#import-db-name')?.value?.trim();
+  if(!dn){alert('请输入数据库名称');return}
+  const it=document.querySelector('input[name="import-type"]:checked')?.value||'db';
+  const im=document.querySelector('input[name="import-mode"]:checked')?.value||'replace';
+  const sd=$('#import-status');if(sd)sd.textContent='导入中...';
 
-function parseCSV(text){const lines=text.split(/\r?\n/).filter(l=>l.trim());if(!lines.length)return{columns:[],rows:[]};function pl(line){const r=[];let c='',q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(q){if(ch==='"'&&line[i+1]==='"'){c+='"';i++}else if(ch==='"')q=false;else c+=ch}else{if(ch==='"')q=true;else if(ch===','){r.push(c.trim());c=''}else c+=ch}}r.push(c.trim());return r}return{columns:pl(lines[0]),rows:lines.slice(1).filter(l=>l.trim()).map(l=>pl(l))}}
+  try{
+    const sql=await initSQL();if(!sql)throw new Error('sql.js 未加载');
+    if(!currentDb||currentDb!==dn){
+      if(dbModified&&currentDb)try{await syncToServer()}catch{};
+      currentDb=dn;
+    }
 
-document.addEventListener('paste',async e=>{if(!currentDb||!currentTable||!localDb)return;const a=document.activeElement;if(a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA'))return;const t=e.clipboardData?.getData('text/plain');if(!t)return;const ls=t.split(/\r?\n/).filter(l=>l.trim());if(!ls.length)return;const cl=tableData.columns.map(c=>`"${c}"`).join(',');const ph=tableData.columns.map(()=>'?').join(',');for(const l of ls){const r=l.split('\t');localDb.run(`INSERT INTO "${currentTable}" (${cl}) VALUES (${ph})`,tableData.columns.map((c,i)=>r[i]!==undefined?r[i]:null))}dbModified=true;loadTableData(tableData.page);render()});
-document.addEventListener('keydown',e=>{if(e.key==='Delete'&&selectedRows.size>0&&!editingCell)deleteSelected();if(e.ctrlKey&&e.key==='c'&&selectedRows.size>0&&!editingCell)copySelected();if(e.ctrlKey&&e.key==='s'){e.preventDefault();syncToServer().then(()=>toast('已保存')).catch(e=>alert('保存失败: '+e.message))}});
+    if(it==='db'){
+      const buf=await f.arrayBuffer();
+      if(buf.byteLength>20*1024*1024)throw new Error(`文件过大(${(buf.byteLength/1024/1024).toFixed(1)}MB)`);
+      const src=new sql.Database(new Uint8Array(buf));
+      if(im==='merge'&&localDb){
+        const st=[];const s=src.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
+        while(s.step())st.push(s.get()[0]);s.free();
+        for(const tn of st){
+          const sc=[];const sd2=[];
+          const s2=src.prepare(`SELECT * FROM "${tn}"`);sc.push(...s2.getColumnNames());
+          while(s2.step()){const v=s2.get();const row={};sc.forEach((c,i)=>{row[c]=v[i]});sd2.push(row)}
+          s2.free();
+          for(const row of sd2){
+            localDb.run(`INSERT OR REPLACE INTO "${tn}" (${sc.map(c=>`"${c}"`).join(',')}) VALUES (${sc.map(()=>'?').join(',')})`,sc.map(c=>row[c]));
+          }
+        }
+        src.close();
+      }else{
+        const oldDb=localDb;localDb=src;if(oldDb)oldDb.close();
+      }
+    }else if(it==='csv'){
+      const txt=await f.text();
+      const tn=$('#csv-table')?.value?.trim()||f.name.replace(/\.csv$/i,'');
+      const{columns:pc,rows:pr}=parseCSV(txt);
+      if(!pc.length)throw new Error('CSV解析失败');
+      if(!localDb)localDb=new sql.Database();
+      if(im==='replace')try{localDb.run(`DROP TABLE IF EXISTS "${tn}"`)}catch{}
+      localDb.run(`CREATE TABLE IF NOT EXISTS "${tn}" (${pc.map(c=>`"${c}" TEXT`).join(', ')})`);
+      const cl=pc.map(c=>`"${c}"`).join(',');const ph=pc.map(()=>'?').join(',');
+      for(const row of pr)localDb.run(`INSERT INTO "${tn}" (${cl}) VALUES (${ph})`,row);
+      currentTable=tn;
+    }
 
-async function init(){await initSQL();render();await refreshSidebar()}
-init();let SQL=null,localDb=null,currentDb=null,currentTable=null,dbModified=false;
-let tableData={columns:[],rows:[],total:0,page:1,limit:200};
-let selectedRows=new Set(),clipboardRows=[],editingCell=null;
+    dbModified=true;
+    if(sd)sd.textContent='正在保存到KV...';
+    await syncToServer();
+    if(sd)sd.textContent='导入成功!';
+    closeModals();render();await refreshSidebar();toast('导入完成');
+  }catch(e){
+    if(sd)sd.textContent='导入失败: '+e.message;
+    console.error('Import error:',e);
+  }
+}
 
-async function initSQL(){if(SQL)return SQL;try{SQL=await window.initSqlJs({locateFile:f=>`https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}`})}catch(e){console.error(e)}return SQL}
-async function api(p,o={}){const r=await fetch(`/api${p}`,{headers:{'Content-Type':'application/json'},...o});if(r.headers.get('content-type')?.includes('json'))return r.json();if(r.headers.get('content-type')?.includes('octet-stream'))return r.arrayBuffer();return r.text()}
-function queryLocal(sql,params=[]){if(!localDb)return[];try{const s=localDb.prepare(sql);if(params.length>0)s.bind(params);const r=[];const c=s.getColumnNames();while(s.step()){const row={};const v=s.get();c.forEach((col,i)=>{row[col]=v[i]});r.push(row)}s.free();return r}catch{return[]}}
-function uint8ToBase64(bytes){let binary='';const chunkSize=8192;for(let i=0;i<bytes.length;i+=chunkSize){binary+=String.fromCharCode.apply(null,bytes.subarray(i,i+chunkSize))}return btoa(binary)}
-async function syncToServer(){if(!localDb||!currentDb)return;const d=localDb.export();const b=uint8ToBase64(new Uint8Array(d));const t=queryLocal("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");await api(`/databases/${encodeURIComponent(currentDb)}/import`,{method:'POST',body:JSON.stringify({data:b,tables:t.map(r=>r.name),merge:false})});dbModified=false}
-function $(s){return document.querySelector(s)}
-function el(tag,attrs={},ch=[]){const e=document.createElement(tag);for(const[k,v]of Object.entries(attrs)){if(k==='className')e.className=v;else if(k==='textContent')e.textContent=v;else if(k==='innerHTML')e.innerHTML=v;else if(k.startsWith('on'))e.addEventListener(k.slice(2).toLowerCase(),v);else if(k==='style'&&typeof v==='object')Object.assign(e.style,v);else e.setAttribute(k,v)}for(const c of ch){if(typeof c==='string')e.appendChild(document.createTextNode(c));else if(c)e.appendChild(c)}return e}
-function showModal(title,content,actions){document.querySelectorAll('.modal-overlay').forEach(o=>o.remove());const ov=el('div',{className:'modal-overlay'});const m=el('div',{className:'modal'});m.appendChild(el('h3',{textContent:title}));if(content)m.appendChild(typeof content==='string'?el('div',{innerHTML:content}):content);if(actions){const bar=el('div',{className:'modal-actions'});for(const a of actions)bar.appendChild(a);m.appendChild(bar)}ov.appendChild(m);ov.addEventListener('click',e=>{if(e.target===ov)ov.remove()});document.body.appendChild(ov);return ov}
-function closeModals(){document.querySelectorAll('.modal-overlay').forEach(o=>o.remove())}
-function render(){$('#app').innerHTML='';$('#app').appendChild(el('div',{className:'layout'},[renderSidebar(),renderMain()]))}
+function parseCSV(text){
+  const lines=text.split(/\r?\n/).filter(l=>l.trim());
+  if(!lines.length)return{columns:[],rows:[]};
+  function pl(line){
+    const r=[];let c='',q=false;
+    for(let i=0;i<line.length;i++){
+      const ch=line[i];
+      if(q){if(ch==='"'&&line[i+1]==='"'){c+='"';i++}else if(ch==='"')q=false;else c+=ch}
+      else{if(ch==='"')q=true;else if(ch===','){r.push(c.trim());c=''}else c+=ch}
+    }
+    r.push(c.trim());return r;
+  }
+  return{columns:pl(lines[0]),rows:lines.slice(1).filter(l=>l.trim()).map(l=>pl(l))};
+}
 
-function renderSidebar(){const s=el('div',{className:'sidebar'});s.appendChild(el('div',{className:'sidebar-header'},[el('h2',{textContent:'SQLite Online'}),el('button',{className:'btn btn-sm btn-primary',textContent:'+ 新建',onClick:showCreateDbDialog})]));s.appendChild(el('div',{className:'db-list',id:'db-list'}));return s}
+document.addEventListener('paste',async e=>{
+  if(!currentDb||!currentTable||!localDb)return;
+  const a=document.activeElement;if(a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA'))return;
+  const t=e.clipboardData?.getData('text/plain');if(!t)return;
+  const ls=t.split(/\r?\n/).filter(l=>l.trim());if(!ls.length)return;
+  const cl=tableData.columns.map(c=>`"${c}"`).join(',');const ph=tableData.columns.map(()=>'?').join(',');
+  for(const l of ls){
+    const r=l.split('\t');
+    localDb.run(`INSERT INTO "${currentTable}" (${cl}) VALUES (${ph})`,tableData.columns.map((c,i)=>r[i]!==undefined?r[i]:null));
+  }
+  dbModified=true;loadTableData(tableData.page);render();
+});
 
-async function showCreateDbDialog(){const inp=el('input',{type:'text',placeholder:'数据库名称',className:'input-sm',style:{width:'100%'}});showModal('新建数据库',inp,[el('button',{className:'btn',textContent:'取消',onClick:closeModals}),el('button',{className:'btn btn-primary',textContent:'创建',onClick:async()=>{const n=inp.value?.trim();if(!n)return;await api('/databases',{method:'POST',body:JSON.stringify({name:n})});currentDb=n;currentTable=null;selectedRows.clear();const sql=await initSQL();if(sql)localDb=new sql.Database();dbModified=false;closeModals();render();await refreshSidebar()}})]);setTimeout(()=>inp.focus(),100)}
-
-async function refreshSidebar(){const c=$('#db-list');if(!c)return;try{const d=await api('/databases');const dbs=d.databases||[];c.innerHTML='';if(!dbs.length){c.appendChild(el('div',{className:'sidebar-empty',textContent:'暂无数据库'}));return}for(const db of dbs){const item=el('div',{className:`db-item ${db.name===currentDb?'active':''}`});item.appendChild(el('span',{className:'db-name',textContent:db.name,onClick:()=>selectDb(db.name)}));item.appendChild(el('button',{className:'btn-icon btn-danger-sm',textContent:'\u00d7',onClick:e=>{e.stopPropagation();deleteDatabase(db.name)}}));if(db.name===currentDb){const tl=el('div',{className:'table-list'});const tables=db.tables||[];if(!tables.length)tl.appendChild(el('div',{className:'table-item',textContent:'(空)',style:{fontStyle:'italic',color:'var(--fg3)'}}));for(const t of tables)tl.appendChild(el('div',{className:`table-item ${t.name===currentTable?'active':''}`,textContent:`${t.name} (${t.rowCount})`,onClick:()=>selectTable(t.name)}));item.appendChild(tl)}c.appendChild(item)}}catch{c.appendChild(el('div',{className:'sidebar-empty',textContent:'加载失败'}))}}
-
-async function selectDb(n){if(dbModified&&currentDb)await syncToServer();currentDb=n;currentTable=null;selectedRows.clear();const sql=await initSQL();if(sql)localDb=new sql.Database();try{const buf=await api(`/databases/${encodeURIComponent(n)}/export`);if(buf&&buf.byteLength>0&&sql)localDb=new sql.Database(new Uint8Array(buf))}catch{}dbModified=false;render();await refreshSidebar()}
-async function selectTable(t){currentTable=t;selectedRows.clear();loadTableData();render()}
-function loadTableData(page=1){if(!localDb||!currentTable)return;const limit=tableData.limit||200;const offset=(page-1)*limit;const cnt=queryLocal(`SELECT COUNT(*) as cnt FROM "${currentTable}"`);const total=cnt[0]?.cnt||0;const data=queryLocal(`SELECT * FROM "${currentTable}" LIMIT ? OFFSET ?`,[limit,offset]);const columns=data.length>0?Object.keys(data[0]):[];tableData={columns,rows:data,total,page,limit}}
-async function deleteDatabase(n){if(!confirm(`确定删除 "${n}"？`))return;await api(`/databases/${encodeURIComponent(n)}`,{method:'DELETE'});if(currentDb===n){currentDb=null;currentTable=null;localDb=null}render();await refreshSidebar()}
-
-function renderMain(){const m=el('div',{className:'main'});if(!currentDb){m.appendChild(el('div',{className:'empty-state'},[el('h3',{textContent:'选择或创建数据库'}),el('p',{textContent:'从左侧选择，或点击新建/导入'}),el('div',{className:'empty-actions'},[el('button',{className:'btn btn-primary',textContent:'新建数据库',onClick:showCreateDbDialog}),el('button',{className:'btn',textContent:'导入文件',onClick:showImportDialog})])]));return m}m.appendChild(renderToolbar());if(currentTable){m.appendChild(renderTableView());m.appendChild(renderPagination())}else{m.appendChild(el('div',{className:'empty-state'},[el('h3',{textContent:'选择数据表'}),el('div',{className:'empty-actions'},[el('button',{className:'btn btn-primary',textContent:'新建表',onClick:showCreateTableDialog}),el('button',{className:'btn',textContent:'导入文件',onClick:showImportDialog})])]))}return m}
-
-function renderToolbar(){const r=[el('button',{className:'btn btn-sm',textContent:'新建表',onClick:showCreateTableDialog}),el('button',{className:'btn btn-sm',textContent:'导入',onClick:showImportDialog}),el('button',{className:'btn btn-sm',textContent:'导出',onClick:exportDb}),el('button',{className:'btn btn-sm',textContent:'SQL',onClick:showSqlEditor})];if(currentTable)r.push(el('button',{className:'btn btn-sm btn-danger',textContent:'删表',onClick:dropTable}));if(selectedRows.size>0){r.push(el('button',{className:'btn btn-sm btn-danger',textContent:`删除(${selectedRows.size})`,onClick:deleteSelected}));r.push(el('button',{className:'btn btn-sm',textContent:'复制',onClick:copySelected}))}if(clipboardRows.length>0)r.push(el('button',{className:'btn btn-sm',textContent:`粘贴(${clipboardRows.length})`,onClick:pasteRows}));if(dbModified)r.push(el('button',{className:'btn btn-sm btn-primary',textContent:'保存',onClick:async()=>{await syncToServer();render();await refreshSidebar()}}));return el('div',{className:'toolbar'},[el('div',{className:'toolbar-left'},[el('span',{className:'toolbar-db',textContent:currentDb}),currentTable?el('span',{className:'toolbar-table',textContent:` / ${currentTable}`}):null]),el('div',{className:'toolbar-right'},r)])}
-
-function showCreateTableDialog(){const ni=el('input',{type:'text',placeholder:'表名称',className:'input-sm',style:{width:'100%',marginBottom:'8px'}});const ci=el('input',{type:'text',placeholder:'列定义 (如: id INTEGER PRIMARY KEY, name TEXT)',className:'input-sm',style:{width:'100%'}});showModal('新建表',el('div',{},[ni,ci]),[el('button',{className:'btn',textContent:'取消',onClick:closeModals}),el('button',{className:'btn btn-primary',textContent:'创建',onClick:async()=>{const n=ni.value?.trim();if(!n||!localDb)return;const c=ci.value?.trim()||'id INTEGER PRIMARY KEY AUTOINCREMENT';try{localDb.run(`CREATE TABLE IF NOT EXISTS "${n}" (${c})`);dbModified=true;currentTable=n;loadTableData();closeModals();render();await refreshSidebar()}catch(e){alert('建表失败: '+e.message)}}})]);setTimeout(()=>ni.focus(),100)}
-
-async function dropTable(){if(!confirm(`确定删除表 "${currentTable}"？`)||!localDb)return;localDb.run(`DROP TABLE IF EXISTS "${currentTable}"`);dbModified=true;currentTable=null;render();await refreshSidebar()}
-async function exportDb(){if(!localDb)return;const d=localDb.export();const b=new Blob([d],{type:'application/octet-stream'});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=`${currentDb}.db`;a.click();URL.revokeObjectURL(u)}
-
-function renderTableView(){const c=el('div',{className:'table-container'});if(!tableData.columns.length){c.appendChild(el('div',{className:'empty-state',textContent:'空表 - 双击单元格可编辑'}));return c}const t=el('table',{className:'data-table'});const thead=el('thead');const hr=el('tr');hr.appendChild(el('th',{className:'th-select'},[el('input',{type:'checkbox',onChange:e=>toggleSelectAll(e.target.checked)})]));for(const col of tableData.columns)hr.appendChild(el('th',{textContent:col}));thead.appendChild(hr);t.appendChild(thead);const tbody=el('tbody');for(let i=0;i<tableData.rows.length;i++){const row=tableData.rows[i];const tr=el('tr',{className:selectedRows.has(i)?'selected':''});tr.appendChild(el('td',{className:'td-select'},[el('input',{type:'checkbox',checked:selectedRows.has(i),onChange:()=>toggleSelectRow(i)})]));for(const col of tableData.columns){const v=row[col];const td=el('td',{textContent:v===null?'NULL':String(v),className:v===null?'null-val':''});td.addEventListener('dblclick',()=>startEditCell(i,col,td));tr.appendChild(td)}tbody.appendChild(tr)}t.appendChild(tbody);c.appendChild(t);return c}
-function toggleSelectAll(chk){if(chk){for(let i=0;i<tableData.rows.length;i++)selectedRows.add(i)}else selectedRows.clear();render()}
-function toggleSelectRow(i){if(selectedRows.has(i))selectedRows.delete(i);else selectedRows.add(i);render()}
-
-function startEditCell(ri,col,td){if(editingCell)return;const row=tableData.rows[ri];editingCell={ri,col};const inp=el('input',{type:'text',value:row[col]===null?'':String(row[col]),className:'cell-editor'});inp.addEventListener('blur',()=>finishEditCell(inp));inp.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();finishEditCell(inp)}if(e.key==='Escape'){editingCell=null;render()}});td.textContent='';td.appendChild(inp);inp.focus();inp.select()}
-async function finishEditCell(inp){if(!editingCell||!localDb)return;const{ri,col}=editingCell;editingCell=null;const nv=inp.value===''?null:inp.value;const row=tableData.rows[ri];if(row[col]===nv||(nv!==null&&String(row[col])===String(nv))){render();return}const wp=[],wv=[];for(const c of tableData.columns){if(c===col)continue;wp.push(`"${c}" = ?`);wv.push(row[c])}try{localDb.run(`UPDATE "${currentTable}" SET "${col}" = ? WHERE ${wp.join(' AND ')}`,[nv,...wv]);row[col]=nv;dbModified=true}catch(e){alert('更新失败: '+e.message)}render()}
-
-async function deleteSelected(){if(!selectedRows.size||!localDb)return;if(!confirm(`确定删除 ${selectedRows.size} 行？`))return;for(const i of selectedRows){const row=tableData.rows[i];const wp=[],wv=[];for(const c of tableData.columns){wp.push(`"${c}" = ?`);wv.push(row[c])}localDb.run(`DELETE FROM "${currentTable}" WHERE ${wp.join(' AND ')}`,wv)}selectedRows.clear();dbModified=true;loadTableData(tableData.page);render()}
-function copySelected(){if(!selectedRows.size)return;clipboardRows=[];for(const i of[...selectedRows].sort((a,b)=>a-b))clipboardRows.push({...tableData.rows[i]});const t=clipboardRows.map(r=>tableData.columns.map(c=>r[c]===null?'':String(r[c])).join('\t')).join('\n');navigator.clipboard.writeText(t).catch(()=>{});render()}
-async function pasteRows(){if(!clipboardRows.length||!localDb||!currentTable)return;for(const row of clipboardRows){const cs=Object.keys(row).map(c=>`"${c}"`).join(',');const vs=Object.values(row);localDb.run(`INSERT INTO "${currentTable}" (${cs}) VALUES (${vs.map(()=>'?').join(',')})`,vs)}dbModified=true;loadTableData(tableData.page);render()}
-
-function renderPagination(){if(!tableData.total)return el('div');const tp=Math.ceil(tableData.total/(tableData.limit||200));return el('div',{className:'pagination'},[el('span',{className:'page-info',textContent:`${tableData.total} 行 \u00b7 第 ${tableData.page}/${tp} 页`}),el('button',{className:'btn btn-sm',textContent:'上一页',disabled:tableData.page<=1,onClick:()=>{loadTableData(tableData.page-1);render()}}),el('button',{className:'btn btn-sm',textContent:'下一页',disabled:tableData.page>=tp,onClick:()=>{loadTableData(tableData.page+1);render()}})])}
-
-function showSqlEditor(){const ta=el('textarea',{className:'sql-editor',id:'sql-input',placeholder:'SELECT * FROM table_name',rows:8});const rd=el('div',{id:'sql-result',className:'sql-result'});showModal('执行 SQL',el('div',{},[ta,rd]),[el('button',{className:'btn',textContent:'关闭',onClick:closeModals}),el('button',{className:'btn btn-primary',textContent:'执行',onClick:executeSql})])}
-async function executeSql(){const sql=$('#sql-input')?.value?.trim();if(!sql||!localDb)return;const rd=$('#sql-result');try{const u=sql.toUpperCase().trim();if(u.startsWith('SELECT')||u.startsWith('PRAGMA')){const d=queryLocal(sql);if(!d.length){rd.textContent='0 行';return}const cols=Object.keys(d[0]);let h=`<p>${d.length} 行</p><table class="data-table"><thead><tr>`;for(const c of cols)h+=`<th>${c}</th>`;h+='</tr></thead><tbody>';for(const row of d){h+='<tr>';for(const c of cols)h+=`<td>${row[c]===null?'<span class="null-val">NULL</span>':row[c]}</td>`;h+='</tr>'}h+='</tbody></table>';rd.innerHTML=h;rd.className='sql-result'}else{localDb.run(sql);dbModified=true;rd.textContent='执行成功';await refreshSidebar()}}catch(e){rd.textContent='错误: '+e.message;rd.className='sql-result error'}}
-
-function showImportDialog(){const dr=el('div',{className:'import-row'},[el('label',{textContent:'数据库: '}),el('input',{type:'text',id:'import-db-name',placeholder:'数据库名称',className:'input-sm',value:currentDb||'',style:{flex:1}})]);const tr=el('div',{className:'import-options'},[el('label',{className:'import-label'},[el('input',{type:'radio',name:'import-type',value:'db',checked:true}),' .db']),el('label',{className:'import-label'},[el('input',{type:'radio',name:'import-type',value:'csv'}),' .csv'])]);const mr=el('div',{className:'import-options'},[el('label',{className:'import-label'},[el('input',{type:'radio',name:'import-mode',value:'replace',checked:true}),' 替换']),el('label',{className:'import-label'},[el('input',{type:'radio',name:'import-mode',value:'merge'}),' 增量合并'])]);const fr=el('input',{type:'file',id:'import-file',accept:'.db,.csv,.sqlite',className:'file-input'});const cr=el('div',{id:'csv-table-name',style:{display:'none'}},[el('label',{textContent:'CSV表名: '}),el('input',{type:'text',id:'csv-table',placeholder:'table_name',className:'input-sm'})]);const sd=el('div',{id:'import-status'});showModal('导入数据',el('div',{},[dr,tr,mr,fr,cr,sd]),[el('button',{className:'btn',textContent:'取消',onClick:closeModals}),el('button',{className:'btn btn-primary',textContent:'导入',onClick:doImport})]);document.querySelectorAll('input[name="import-type"]').forEach(r=>r.addEventListener('change',()=>{const o=$('#csv-table-name');if(o)o.style.display=r.value==='csv'&&r.checked?'block':'none'}))}
-
-async function doImport(){const f=$('#import-file')?.files?.[0];if(!f){alert('请选择文件');return}const dn=$('#import-db-name')?.value?.trim();if(!dn){alert('请输入数据库名称');return}const it=document.querySelector('input[name="import-type"]:checked')?.value||'db';const im=document.querySelector('input[name="import-mode"]:checked')?.value||'replace';const sd=$('#import-status');if(sd)sd.textContent='导入中...';try{const sql=await initSQL();if(!sql)throw new Error('sql.js 未加载');if(!currentDb||currentDb!==dn){if(dbModified&&currentDb)await syncToServer();currentDb=dn}if(it==='db'){const buf=await f.arrayBuffer();const src=new sql.Database(new Uint8Array(buf));if(im==='merge'&&localDb){const st=[];const s=src.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");while(s.step())st.push(s.get()[0]);s.free();for(const tn of st){const sd2=[];const sc=[];const s2=src.prepare(`SELECT * FROM "${tn}"`);sc.push(...s2.getColumnNames());while(s2.step()){const v=s2.get();const row={};sc.forEach((c,i)=>{row[c]=v[i]});sd2.push(row)}s2.free();localDb.run(`INSERT OR REPLACE INTO "${tn}" (${sc.map(c=>`"${c}"`).join(',')}) VALUES (${sc.map(()=>'?').join(',')})`,sd2.flatMap(row=>sc.map(c=>row[c])))}src.close()}else{if(localDb)localDb.close();localDb=src}}else if(it==='csv'){const txt=await f.text();const tn=$('#csv-table')?.value?.trim()||f.name.replace(/\.csv$/i,'');const{columns:parsedCols,rows:parsedRows}=parseCSV(txt);if(!parsedCols.length)throw new Error('CSV解析失败');if(!localDb)localDb=new sql.Database();if(im==='replace')try{localDb.run(`DROP TABLE IF EXISTS "${tn}"`)}catch{}localDb.run(`CREATE TABLE IF NOT EXISTS "${tn}" (${parsedCols.map(c=>`"${c}" TEXT`).join(', ')})`);const cl=parsedCols.map(c=>`"${c}"`).join(',');const ph=parsedCols.map(()=>'?').join(',');for(const row of parsedRows)localDb.run(`INSERT INTO "${tn}" (${cl}) VALUES (${ph})`,row);currentTable=tn}dbModified=true;await syncToServer();if(sd)sd.textContent='导入成功!';closeModals();render();await refreshSidebar()}catch(e){if(sd)sd.textContent='导入失败: '+e.message}}
-
-function parseCSV(text){const lines=text.split(/\r?\n/).filter(l=>l.trim());if(!lines.length)return{columns:[],rows:[]};function pl(line){const r=[];let c='',q=false;for(let i=0;i<line.length;i++){const ch=line[i];if(q){if(ch==='"'&&line[i+1]==='"'){c+='"';i++}else if(ch==='"')q=false;else c+=ch}else{if(ch==='"')q=true;else if(ch===','){r.push(c.trim());c=''}else c+=ch}}r.push(c.trim());return r}return{columns:pl(lines[0]),rows:lines.slice(1).filter(l=>l.trim()).map(l=>pl(l))}}
-
-document.addEventListener('paste',async e=>{if(!currentDb||!currentTable||!localDb)return;const a=document.activeElement;if(a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA'))return;const t=e.clipboardData?.getData('text/plain');if(!t)return;const ls=t.split(/\r?\n/).filter(l=>l.trim());if(!ls.length)return;const cl=tableData.columns.map(c=>`"${c}"`).join(',');const ph=tableData.columns.map(()=>'?').join(',');for(const l of ls){const r=l.split('\t');localDb.run(`INSERT INTO "${currentTable}" (${cl}) VALUES (${ph})`,tableData.columns.map((c,i)=>r[i]!==undefined?r[i]:null))}dbModified=true;loadTableData(tableData.page);render()});
-document.addEventListener('keydown',e=>{if(e.key==='Delete'&&selectedRows.size>0&&!editingCell)deleteSelected();if(e.ctrlKey&&e.key==='c'&&selectedRows.size>0&&!editingCell)copySelected();if(e.ctrlKey&&e.key==='s'){e.preventDefault();syncToServer()}});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Delete'&&selectedRows.size>0&&!editingCell)deleteSelected();
+  if(e.ctrlKey&&e.key==='c'&&selectedRows.size>0&&!editingCell)copySelected();
+  if(e.ctrlKey&&e.key==='s'){
+    e.preventDefault();
+    syncToServer().then(()=>toast('已保存到KV')).catch(e=>alert('保存失败: '+e.message));
+  }
+});
 
 async function init(){await initSQL();render();await refreshSidebar()}
 init();

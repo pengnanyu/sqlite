@@ -145,32 +145,24 @@ export default {
       if (method === 'POST' && path.match(/^\/api\/databases\/[^/]+\/save$/)) {
         const name = decodeURIComponent(path.split('/')[3]);
         const contentType = request.headers.get('content-type') || '';
-        let base64Data = '';
+        let buffer: ArrayBuffer;
         let tables: string[] = [];
 
         if (contentType.includes('multipart/form-data')) {
           const formData = await request.formData();
           const file = formData.get('file') as File;
           if (!file) return json({ error: '缺少文件' }, 400);
-          const buf = await file.arrayBuffer();
-          const bytes = new Uint8Array(buf);
-          let binary = '';
-          for (let i = 0; i < bytes.length; i += 8192) {
-            binary += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + 8192, bytes.length)) as any);
-          }
-          base64Data = btoa(binary);
+          buffer = await file.arrayBuffer();
           const tablesStr = formData.get('tables') as string;
           if (tablesStr) { try { tables = JSON.parse(tablesStr); } catch {} }
         } else {
           const body: any = await request.json();
-          base64Data = body.data;
+          if (!body.data) return json({ error: '缺少数据' }, 400);
+          const bytes = base64ToUint8Array(body.data);
+          buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
           tables = body.tables || [];
         }
 
-        if (!base64Data) return json({ error: '缺少数据' }, 400);
-
-        const bytes = base64ToUint8Array(base64Data);
-        const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
         await env.DB_KV.put(DB_PREFIX + name + ':data', buffer);
 
         const meta = { name, tables, updatedAt: Date.now() };
@@ -179,7 +171,7 @@ export default {
         const names = await getDbIndex(env);
         if (!names.includes(name)) { names.push(name); await updateDbIndex(env, names); }
 
-        return json({ message: '已保存', name, size: bytes.length });
+        return json({ message: '已保存', name, size: buffer.byteLength });
       }
 
       // POST /api/databases/:name/import - 同save
